@@ -6,11 +6,12 @@ bolty = 65;
 
 powerdepth = 32;
 powerheight = 30;
+powerspacing = 70;
 
 rimwidth = 3;
 screwdiam = 4;
 boltdiam = 3;
-platedepth = 3;
+platedepth = 4;
 
 fudge = 0.1;
 fudge2 = 2 * fudge;
@@ -33,7 +34,7 @@ difference() {
         translate([-boltdiam / 2 - rimwidth, -boltdiam / 2 - rimwidth, 0]) {
             cube([width + boltdiam + 2 + rimwidth, length + boltdiam + 2 + rimwidth, platedepth]);
         }
-        translate([70 - boltdiam / 2 - 2 * rimwidth, -boltdiam / 2 - 2 * rimwidth, 0]) {
+        translate([powerspacing - boltdiam / 2 - 2 * rimwidth, -boltdiam / 2 - 2 * rimwidth, 0]) {
             cube([boltdiam + 4 * rimwidth, length + boltdiam + 4 * rimwidth, platedepth]);
         }
         for (i = [xoffset, xoffset + boltx]) {
@@ -43,7 +44,7 @@ difference() {
                 }
             }
         }
-        for(i = [0, 70]) {
+        for(i = [0, powerspacing]) {
             for(j = [0, length]) { 
                 translate([i, j, 0]) {
                     cylinder(d = boltdiam + 2 * rimwidth, h = powerheight + platedepth, center = false, $fn = 360);
@@ -76,9 +77,9 @@ difference() {
         cube([xoffset - (3 * boltdiam) / 2 - 5 * rimwidth, length - 2 * boltdiam - 4 * rimwidth, platedepth + fudge2]);
     }
     translate([xoffset + boltdiam / 2 + 2 * rimwidth, boltdiam + 2 * rimwidth, -fudge]) {
-        cube([70 - xoffset - (3 * boltdiam) / 2 - 4 * rimwidth, length - 2 * boltdiam - 4 * rimwidth, platedepth + fudge2]);
+        cube([powerspacing - xoffset - (3 * boltdiam) / 2 - 4 * rimwidth, length - 2 * boltdiam - 4 * rimwidth, platedepth + fudge2]);
     }
     translate([70 + boltdiam / 2 + 2 * rimwidth, boltdiam + 2 * rimwidth, -fudge]) {
-        cube([width - 70 - (3 * boltdiam) / 2 - 5 * rimwidth, length - 2 * boltdiam - 4 * rimwidth, platedepth + fudge2]);
+        cube([width - powerspacing - (3 * boltdiam) / 2 - 5 * rimwidth, length - 2 * boltdiam - 4 * rimwidth, platedepth + fudge2]);
     }
 }

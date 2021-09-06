@@ -13,7 +13,7 @@ y = screwspacey + (2 * rimwidth) + screwdiam;
 
 camheight = 26;
 camlength = 102.2;
-camwidth = 27.2;
+camwidth = 27.4;
 
 wall = 2;
 
@@ -137,26 +137,3 @@ difference() {
     }
 }
 
-translate([-camlength / 3 -columndiam / 2  - rimwidth, camwidth, 0]) {
-    difference() {
-        cube([columndiam + 2 * rimwidth, platey + 2 * (columndiam - wall + rimwidth), platedepth]);
-        translate([rimwidth + (columndiam / 2), rimwidth + columndiam / 2, -fudge]) { 
-            cylinder(d = screwdiam, h = platedepth + fudge2, center = false, $fn = 360);
-        }
-        translate([rimwidth + (columndiam / 2), platey + 2 * (columndiam - wall + rimwidth) - (rimwidth + columndiam / 2), -fudge]) { 
-            cylinder(d = screwdiam, h = platedepth + fudge2, center = false, $fn = 360);
-        }
-    }
-}
-
-translate([camlength / 3  - columndiam / 2  - rimwidth, camwidth, 0]) {
-    difference() {
-        cube([columndiam + 2 * rimwidth, platey + 2 * (columndiam - wall + rimwidth), platedepth]);
-        translate([rimwidth + (columndiam / 2), rimwidth + columndiam / 2, -fudge]) { 
-            cylinder(d = screwdiam, h = platedepth + fudge2, center = false, $fn = 360);
-        }
-        translate([rimwidth + (columndiam / 2), platey + 2 * (columndiam - wall + rimwidth) - (rimwidth + columndiam / 2), -fudge]) { 
-            cylinder(d = screwdiam, h = platedepth + fudge2, center = false, $fn = 360);
-        }
-    }
-}
