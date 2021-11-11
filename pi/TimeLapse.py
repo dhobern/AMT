@@ -2,7 +2,7 @@
 """
 TimeLapse.py - Collect Autonomous Moth Trap images on time lapse
 
-Captures a series of images and saves these with configuration metadata.
+Captures a series of images and saves these with configuration metadata. Intended for use on a Raspberry Pi running as an automonous moth trap. For more information see https://amt.hobern.net/.
 
 Configuration is provided via a JSON file, with the following elements:
 
@@ -10,6 +10,8 @@ Configuration is provided via a JSON file, with the following elements:
  - processor: Purely to document for future users (e.g. "Raspberry Pi Zero W")
  - camera: Purely to document for future users (e.g. "Raspberry Pi HQ + 6mm Wide Angle Lens")
  - operatingdistance: Purely to document the operating distance of the camera from the illuminated surface, in mm
+ - mothlight: Purely to document for future users (e.g. "High-power LED tube: 4 UV, 1 green, 1 blue")
+ - illumination: Purely to document for future users (e.g. "10-inch ring light")
  - mode: The operating model, one of "TimeLapse" or "Motion" (at present this script only supports TimeLapse)
  - imagewidth: Image width for camera resolution in pixels
  - imageheight: Image height for camera resolution in pixels
@@ -24,7 +26,7 @@ Configuration is provided via a JSON file, with the following elements:
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
-__license__ = "CC BY 4.0"
+__license__ = "CC-BY-4.0"
 __version__ = "1.0.0"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"

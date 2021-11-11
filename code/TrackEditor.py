@@ -317,7 +317,7 @@ class TrackFrame(ttk.Frame):
         self.identify.bind("<Tab>", partial(parent.tabforward, self))
         self.identify.bind("<Shift-Tab>", partial(parent.tabbackward, self))
         i = 0
-        for t in ["Diptera", "Hymenoptera", "Lepidoptera", "Trichoptera", "Tortricidae", "Oecophoridae", "Araneae"]:
+        for t in ["Insecta", "Coleoptera", "Diptera", "Hymenoptera", "Lepidoptera", "Trichoptera", "Tortricidae", "Oecophoridae", "Araneae"]:
             tbutton = ttk.Button(self.options, width = 6, text=t[0:3], command = partial(self.setidentification, t))
             tbutton.grid(column = 3 + i, row = 0, sticky = (N, W, S))
             i += 1
