@@ -1,0 +1,44 @@
+{
+   "datapath": "D:/AMT/Alpha",
+   "threshold": 0.25,
+   "maxim": -1,
+   "force": false,
+   "savemarked": false,
+   "savemovie": false,
+   "markchanged": false,
+
+   "blobdetector": {
+      "kernel": 7,
+      "thresh": 20,
+      "minarea": 1000,
+      "maxarea": 300000
+   },
+
+   "tracker": {
+      "scales": [
+         {
+           "class": "AMTSizeScale",
+           "weight": 4
+         },
+         {
+            "class": "AMTDistanceScale",
+            "weight": 4
+          },
+          {
+            "class": "AMTAgeScale",
+            "weight": 1
+          },
+          {
+            "class": "AMTDirectionScale",
+            "weight": 2
+          },
+          {
+            "class": "AMTColorScale",
+            "weight": 2
+          }
+      ], 
+      "cost_threshold": 0.5,
+	   "maxage": 5
+   }
+
+}

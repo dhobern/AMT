@@ -1,4 +1,5 @@
 import RPi.GPIO as GPIO
+import sys
 
 red = GPIO.LOW
 green = GPIO.LOW

@@ -113,7 +113,6 @@ class TrackCanvas(Canvas):
                 self.tframeheights[i] = tframe.calculateheight(self.width)
                 tframe.place(x=0, y=self.height)
                 self.height += self.tframeheights[i]
-            print((self.height, self.width))
             self.configure(height = self.height, width = self.width)
 
     def bbox(self, tagOrId = None):

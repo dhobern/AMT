@@ -1,0 +1,15 @@
+{
+   "unitname": "AMT-Alpha",
+   "processor": "Raspberry Pi Zero W",
+   "camera": "Raspberry Pi HQ + 6mm Wide Angle Lens",
+   "mode": "TimeLapse",
+   "operatingdistance": 265,
+   "imagewidth": 4056,
+   "imageheight": 3040,
+   "brightness": 60,
+   "quality": 70,
+   "interval": 10,
+   "maximages": -1,
+   "folder": "/home/pi/AMT",
+   "statuslight": true
+}

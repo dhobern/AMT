@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import cv2
 import csv
@@ -89,7 +90,10 @@ def isinteresting(image, blob, width, height, threshold):
         return True
     return False
 
-config_filename = "../config/AMT_config.json"
+if len(sys.argv) >= 2:
+    config_filename = sys.argv[1]
+else:
+    config_filename = "../config/AMT_config.json"
 
 amtimgheadings = [ "id", "datetime", "filename", "temperature", "humidity" ]
 amtblobheadings = [ "id", "imageid", "filename", "x", "y", "w", "h", "xcrop", "ycrop", "wcrop", "hcrop", "xcenter", "ycenter", "size", "illumination", "changed", "colors", "trackid", "cost", "weights", "direction", "delay" ]
@@ -107,142 +111,145 @@ agecolors = [(0, 128, 0), (255, 0, 0), (255, 50, 50), (255, 100, 100), (255, 150
 
 p = re.compile("^20[-0-9]*$")
 for f in os.listdir(basefolder):
-    print(f)
-    if os.path.isdir(os.path.join(basefolder, f)) and p.match(f) and (conf['force'] or not os.path.isdir(os.path.join(basefolder, f, "data"))):
-        folder = os.path.join(basefolder, f)
-        datafolder = os.path.join(folder, "data")
-        markedfolder = os.path.join(datafolder, "marked")
-        blobfolder = os.path.join(datafolder, "blob")
+    if os.path.isdir(os.path.join(basefolder, f)) and p.match(f):
+        if not conf['force'] and os.path.isdir(os.path.join(basefolder, f, "data")):
+            print(f + " - already processed")
+        else:
+            print(f + " - processing")
+            folder = os.path.join(basefolder, f)
+            datafolder = os.path.join(folder, "data")
+            markedfolder = os.path.join(datafolder, "marked")
+            blobfolder = os.path.join(datafolder, "blob")
 
-        if os.path.isdir(datafolder) and conf['force']:
-            shutil.rmtree(datafolder)
-        os.mkdir(datafolder)
-        os.mkdir(blobfolder)
-        if savingmarked:
-            os.mkdir(markedfolder)
-        if savingmovie:
-            moviewriter = cv2.VideoWriter(os.path.join(datafolder, "amt.avi"), cv2.VideoWriter_fourcc(*'DIVX'), 5, (3840, 2160))
-            trails = {}
-
-        identifications = None
-        trackfilename = os.path.join(folder, "amt_track.csv")
-        if os.path.isfile(trackfilename):
-            identifications = {}
-            with open(trackfilename, newline='') as trackfile:
-                trackreader = csv.reader(trackfile, delimiter=',')
-                next(trackreader)
-                for track in trackreader:
-                    identifications[int(track[0])] = track[1]
-
-        with open(os.path.join(datafolder, "amt_image.csv"), 'w', newline='', encoding="utf8") as amtimgfile, open(os.path.join(datafolder, "amt_blob.csv"), 'w', newline='', encoding="utf8") as amtblobfile:
-            amtimgwriter = csv.writer(amtimgfile, delimiter=',')
-            amtblobwriter = csv.writer(amtblobfile, delimiter=',')
-            amtimgwriter.writerow(amtimgheadings)
-            amtblobwriter.writerow(amtblobheadings)
-        
-            imageid = 0
-            blobid = 0
-            bl = None
-            tr = None
-            tracks = []
-            for filename in os.listdir(folder):
-                if filename.endswith("jpg"):
-                    filepath = os.path.join(folder, filename)
-
-                    if bl is None:
-                        bl = AMTBlobDetector(conf)
-                    if tr is None:
-                        tr = AMTTracker(conf)
-
-                    image = cv2.imread(filepath)
-                    height, width, channels = image.shape
-                    imageid += 1
-                    imagerec = {}
-                    imagerec["id"] = imageid
-                    imagerec["datetime"] = getdatetime(filename)
-                    imagerec["filename"] = filename
-                    imagerec["temperature"] = gettemperature(filename)
-                    imagerec["humidity"] = gethumidity(filename)
-                    writerecord(amtimgwriter, imagerec, amtimgheadings)
-                    print(filename + ": " + str(height) + " x " + str(width) + " x " + str(channels) + " " + imagerec["datetime"] + " " + imagerec["temperature"] + " " + imagerec["humidity"])
-
-                    startid = 0
-                    count, blobs, binary = bl.findblobs(image, imageid)
-
-                    b = 0
-                    while b < len(blobs):
-                        if isinteresting(image, blobs[b], width, height, threshold):
-                            blobid += 1
-                            blobs[b]["id"] = blobid
-                            b += 1
-                        else:
-                            blobs.pop(b)
-
-                    tracks, deadtracks = tr.managetracks(tracks, blobs)
-
-                    if savingmarked or savingmovie:
-                        imagenew = image.copy()
-
-                    for blob in tracks:
-                        if savingmarked:
-                            cv2.rectangle(imagenew, (blob["xcrop"], blob["ycrop"]), (blob["xcrop"] + blob["wcrop"], blob["ycrop"] + blob["hcrop"]), agecolors[blob["age"]], 2)
-                            cost = str(blob["cost"])
-                            if len(cost) > 5:
-                                cost = cost[0:5]
-                            if identifications is not None:
-                                if blob["trackid"] in identifications:
-                                    identification = identifications[blob["trackid"]]
-                                else:
-                                    identification = "Unknown"
-                                if blob["ycrop"] < 30:
-                                    cv2.putText(imagenew, identification, (blob["xcrop"], blob["ycrop"] + blob["hcrop"] + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
-                                else:
-                                    cv2.putText(imagenew, identification, (blob["xcrop"], blob["ycrop"] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
-                            else:
-                                labeltext = str(blob["trackid"]) + ": " + str(blob["id"]) + " (" + cost + ") / " + blob["colors"] 
-                                if blob["ycrop"] < 60:
-                                    cv2.putText(imagenew, labeltext, (blob["xcrop"], blob["ycrop"] + blob["hcrop"] + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
-                                    cv2.putText(imagenew, "{" + blob["weights"] + "}", (blob["xcrop"], blob["ycrop"] + blob["hcrop"] + 55), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
-                                else:
-                                    cv2.putText(imagenew, labeltext, (blob["xcrop"], blob["ycrop"] - 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
-                                    cv2.putText(imagenew, "{" + blob["weights"] + "}", (blob["xcrop"], blob["ycrop"] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
-
-                            if blob["trackid"] in trails:
-                                trail = trails[blob["trackid"]]
-                                x1, y1 = blob["xcenter"], blob["ycenter"]
-                                age = 0
-                                while age < len(trail) and age < 5:
-                                    x2, y2 = trail[age]
-                                    cv2.line(imagenew, (x1, y1), (x2, y2), agecolors[age + 1], 2, cv2.LINE_AA)
-                                    x1, y1 = x2, y2
-                                    age += 1
-                            else:
-                                trail = []
-                                trails[blob["trackid"]] = trail
-                            trail.insert(0, (blob["xcenter"], blob["ycenter"]))
-                            if len(trail) > 5:
-                                trail = trail[0:5]
-
-                        if blob["age"] == 0:
-
-                            if blob["changed"]:
-                                blob["filename"] = str(blob["trackid"]) + "_" + imagerec["datetime"] + "_" + str(blobid) + ".jpg"
-                                cv2.imwrite(os.path.join(blobfolder, blob["filename"]), blob["blobimage"])
-
-                            writerecord(amtblobwriter, blob, amtblobheadings)
-
-                            if markchanged:
-                                if blob["changed"]:
-                                    cv2.rectangle(blob["blobimage"], (2, 2), (w - 2, h - 2), (0, 255, 0), 2)
-                                else:
-                                    cv2.rectangle(blob["blobimage"], (2, 2), (w - 2, h - 2), (255, 0, 0), 2)
-
-                    if savingmarked:
-                        cv2.imwrite(os.path.join(markedfolder, "new" + filename), imagenew)
-
-                    if savingmovie:
-                        moviewriter.write(imagenew)
-
+            if os.path.isdir(datafolder) and conf['force']:
+                shutil.rmtree(datafolder)
+            os.mkdir(datafolder)
+            os.mkdir(blobfolder)
+            if savingmarked:
+                os.mkdir(markedfolder)
             if savingmovie:
-                moviewriter.release()
+                moviewriter = cv2.VideoWriter(os.path.join(datafolder, "amt.avi"), cv2.VideoWriter_fourcc(*'DIVX'), 5, (3840, 2160))
+                trails = {}
+
+            identifications = None
+            trackfilename = os.path.join(folder, "amt_track.csv")
+            if os.path.isfile(trackfilename):
+                identifications = {}
+                with open(trackfilename, newline='') as trackfile:
+                    trackreader = csv.reader(trackfile, delimiter=',')
+                    next(trackreader)
+                    for track in trackreader:
+                        identifications[int(track[0])] = track[1]
+
+            with open(os.path.join(datafolder, "amt_image.csv"), 'w', newline='', encoding="utf8") as amtimgfile, open(os.path.join(datafolder, "amt_blob.csv"), 'w', newline='', encoding="utf8") as amtblobfile:
+                amtimgwriter = csv.writer(amtimgfile, delimiter=',')
+                amtblobwriter = csv.writer(amtblobfile, delimiter=',')
+                amtimgwriter.writerow(amtimgheadings)
+                amtblobwriter.writerow(amtblobheadings)
+            
+                imageid = 0
+                blobid = 0
+                bl = None
+                tr = None
+                tracks = []
+                for filename in os.listdir(folder):
+                    if filename.lower().endswith("jpg"):
+                        filepath = os.path.join(folder, filename)
+
+                        if bl is None:
+                            bl = AMTBlobDetector(conf)
+                        if tr is None:
+                            tr = AMTTracker(conf)
+
+                        image = cv2.imread(filepath)
+                        height, width, channels = image.shape
+                        imageid += 1
+                        imagerec = {}
+                        imagerec["id"] = imageid
+                        imagerec["datetime"] = getdatetime(filename)
+                        imagerec["filename"] = filename
+                        imagerec["temperature"] = gettemperature(filename)
+                        imagerec["humidity"] = gethumidity(filename)
+                        writerecord(amtimgwriter, imagerec, amtimgheadings)
+                        print(filename + ": " + str(height) + " x " + str(width) + " x " + str(channels) + " " + imagerec["datetime"] + " " + imagerec["temperature"] + " " + imagerec["humidity"])
+
+                        startid = 0
+                        count, blobs, binary = bl.findblobs(image, imageid)
+
+                        b = 0
+                        while b < len(blobs):
+                            if isinteresting(image, blobs[b], width, height, threshold):
+                                blobid += 1
+                                blobs[b]["id"] = blobid
+                                b += 1
+                            else:
+                                blobs.pop(b)
+
+                        tracks, deadtracks = tr.managetracks(tracks, blobs)
+
+                        if savingmarked or savingmovie:
+                            imagenew = image.copy()
+
+                        for blob in tracks:
+                            if savingmarked:
+                                cv2.rectangle(imagenew, (blob["xcrop"], blob["ycrop"]), (blob["xcrop"] + blob["wcrop"], blob["ycrop"] + blob["hcrop"]), agecolors[blob["age"]], 2)
+                                cost = str(blob["cost"])
+                                if len(cost) > 5:
+                                    cost = cost[0:5]
+                                if identifications is not None:
+                                    if blob["trackid"] in identifications:
+                                        identification = identifications[blob["trackid"]]
+                                    else:
+                                        identification = "Unknown"
+                                    if blob["ycrop"] < 30:
+                                        cv2.putText(imagenew, identification, (blob["xcrop"], blob["ycrop"] + blob["hcrop"] + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
+                                    else:
+                                        cv2.putText(imagenew, identification, (blob["xcrop"], blob["ycrop"] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
+                                else:
+                                    labeltext = str(blob["trackid"]) + ": " + str(blob["id"]) + " (" + cost + ") / " + blob["colors"] 
+                                    if blob["ycrop"] < 60:
+                                        cv2.putText(imagenew, labeltext, (blob["xcrop"], blob["ycrop"] + blob["hcrop"] + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
+                                        cv2.putText(imagenew, "{" + blob["weights"] + "}", (blob["xcrop"], blob["ycrop"] + blob["hcrop"] + 55), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
+                                    else:
+                                        cv2.putText(imagenew, labeltext, (blob["xcrop"], blob["ycrop"] - 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
+                                        cv2.putText(imagenew, "{" + blob["weights"] + "}", (blob["xcrop"], blob["ycrop"] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, agecolors[blob["age"]], 2, cv2.LINE_AA)
+
+                                if blob["trackid"] in trails:
+                                    trail = trails[blob["trackid"]]
+                                    x1, y1 = blob["xcenter"], blob["ycenter"]
+                                    age = 0
+                                    while age < len(trail) and age < 5:
+                                        x2, y2 = trail[age]
+                                        cv2.line(imagenew, (x1, y1), (x2, y2), agecolors[age + 1], 2, cv2.LINE_AA)
+                                        x1, y1 = x2, y2
+                                        age += 1
+                                else:
+                                    trail = []
+                                    trails[blob["trackid"]] = trail
+                                trail.insert(0, (blob["xcenter"], blob["ycenter"]))
+                                if len(trail) > 5:
+                                    trail = trail[0:5]
+
+                            if blob["age"] == 0:
+
+                                if blob["changed"]:
+                                    blob["filename"] = str(blob["trackid"]) + "_" + imagerec["datetime"] + "_" + str(blobid) + ".jpg"
+                                    cv2.imwrite(os.path.join(blobfolder, blob["filename"]), blob["blobimage"])
+
+                                writerecord(amtblobwriter, blob, amtblobheadings)
+
+                                if markchanged:
+                                    if blob["changed"]:
+                                        cv2.rectangle(blob["blobimage"], (2, 2), (w - 2, h - 2), (0, 255, 0), 2)
+                                    else:
+                                        cv2.rectangle(blob["blobimage"], (2, 2), (w - 2, h - 2), (255, 0, 0), 2)
+
+                        if savingmarked:
+                            cv2.imwrite(os.path.join(markedfolder, "new" + filename), imagenew)
+
+                        if savingmovie:
+                            moviewriter.write(imagenew)
+
+                if savingmovie:
+                    moviewriter.release()
 
