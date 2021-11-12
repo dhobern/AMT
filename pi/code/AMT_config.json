@@ -9,9 +9,14 @@
    "imagewidth": 4056,
    "imageheight": 3040,
    "brightness": 60,
+   "contrast": 10,
+   "saturation": 10,
+   "sharpness": 10,
    "quality": 70,
-   "interval": 10,
-   "maximages": -1,
+   "interval": 20,
+   "initialdelay": 120,
+   "maximages": 180,
    "folder": "/home/pi/AMT",
-   "statuslight": true
+   "statuslight": true,
+   "dht22": false
 }

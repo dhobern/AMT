@@ -1,6 +1,6 @@
 
 *.stl
 *.gcode
-*/__pycache__/
 /save/
 CameraSettings.txt
+*.pyc

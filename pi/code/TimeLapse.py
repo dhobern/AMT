@@ -15,13 +15,22 @@ Configuration is provided via a JSON file, with the following elements:
  - mode: The operating model, one of "TimeLapse" or "Motion" (at present this script only supports TimeLapse)
  - imagewidth: Image width for camera resolution in pixels
  - imageheight: Image height for camera resolution in pixels
- - brightness: Image brightness for camera (0-100, PiCamera default is 50)  
+ - brightness: Image brightness for camera (0-100, PiCamera default is 50)
+ - contrast: Image contrast for camera (-100-100, PiCamera default is 0)
+ - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
+ - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
  - quality: Image quality for camera (0-100, PiCamera default is 85)
  - interval: TimeLapse interval in seconds
+ - initialdelay: Delay in seconds between enabling lights and DHT22 sensor before capturing images
  - maximages: Maximum number of images to collect (-1 for unlimited)
  - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
- - statuslight: Specify whether to use red/green status light (true/false)
-
+ - statuslight: Specify whether to use red/green status light (true/false, defaults to false)
+ - dht22: Specify whether to use DHT22 temperature/humidity sensor (true/false, defaults to false)
+ - gpiogreen = Raspberry Pi GPIO pin for green side of red/green GPIO pin in BOARD mode (default 22)
+ - gpiored = Raspberry Pi GPIO pin for red side of red/green GPIO pin in BOARD mode (default 26)
+ - gpiolights = Raspberry Pi GPIO pin for activating lights in BOARD mode (default 37)
+ - gpiodht22power = Raspberry Pi GPIO pin for enabling 3.3V power to DHT22 temperature/humidity sensor in BOARD mode (default 19)
+ - gpiodht22data = Raspberry Pi GPIO pin for DHT22 temperature/humidity sensor data in BOARD mode (default 21)
 """
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
@@ -47,42 +56,92 @@ configfilename = "/home/pi/AMT_config.json"
 # Only enable status light if specified in configuration file
 statuslight = False
 
+# Only enable dht22 sensor if specified in configuration file
+dht22 = False
+
+# GPIO pins
+gpiogreen = 22
+gpiored = 26
+gpiolights = 37
+gpiodht22power = 19
+gpiodht22data = 21
+
 # Read JSON config file and return as map
 def readconfig(path):
     with open(path) as file:
         data = json.load(file)
     return data
 
-# Set status light to red or green - does nothing if statuslight is false
-def showstatus(color):
-    global statuslight
-    if statuslight:
-        if color == "red":
-            GPIO.output(26, GPIO.HIGH)
-            GPIO.output(22, GPIO.LOW)
-        elif color == "green":
-            GPIO.output(26, GPIO.LOW)
-            GPIO.output(22, GPIO.HIGH)
-        else:
-            GPIO.output(26, GPIO.LOW)
-            GPIO.output(22, GPIO.LOW)
+# Enable GPIO control and, if appropriate, enable status light, dht22 sensor and main lights
+def initgpio(config):
+    global statuslight, dht22, gpiogreen, gpiored, gpiolights, gpiodht22power, gpiodht22data
 
-# If statuslight is true, setup GPIO pins for red/green LED and set to green
-def initstatus(config):
-    global statuslight
-    if config['statuslight']:
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setwarnings(False)
+
+    if 'statuslight' in config:
         statuslight = True
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setwarnings(False)
-        GPIO.setup(26, GPIO.OUT)
-        GPIO.setup(22, GPIO.OUT)
+        if 'gpiogreen' in config:
+            gpiogreen = config['gpiogreen']
+        if 'gpiored' in config:
+            gpiored = config['gpiored']
+        GPIO.setup(gpiogreen, GPIO.OUT)
+        GPIO.setup(gpiored, GPIO.OUT)
         showstatus("green")
 
-# Return camera initialised using properties from config file - note that camera is already in preview
+    if 'dht22' in config:
+        dht22 = True
+        if 'gpiodht22power' in config:
+            gpiodht22power = config['gpiodht22power']
+        if 'gpiodht22data' in config:
+            gpiodht22data = config['gpiodht22data']
+        GPIO.setup(gpiodht22power, GPIO.OUT)
+        # TODO setup data
+        
+    if 'gpiolights' in config:
+        gpiolights = config['gpiolights']
+    GPIO.setup(gpiolights, GPIO.OUT)
+
+# Set status light to red or green - does nothing if statuslight is false
+def showstatus(color):
+    global statuslight, gpiogreen, gpiored
+
+    if statuslight:
+        if color == "red":
+            GPIO.output(gpiored, GPIO.HIGH)
+            GPIO.output(gpiogreen, GPIO.LOW)
+        elif color == "green":
+            GPIO.output(gpiored, GPIO.LOW)
+            GPIO.output(gpiogreen, GPIO.HIGH)
+        else:
+            GPIO.output(gpiored, GPIO.LOW)
+            GPIO.output(gpiogreen, GPIO.LOW)
+
+# Turn lights on or off
+def initlights(activate):
+    global gpiolights
+
+    GPIO.output(gpiolights, GPIO.HIGH if activate else GPIO.LOW)
+
+# Turn dht22 sensor on or off if enabled
+def initdht22(activate):
+    global dht22, gpiodht22power
+
+    if dht22:
+        GPIO.output(gpiodht22power, GPIO.HIGH if activate else GPIO.LOW)
+
+# Return camera initialised using properties from config file - note that camera is already in preview when returned
 def initcamera(config):
     camera = PiCamera()
     camera.resolution = (config['imagewidth'], config['imageheight'])
-    camera.brightness = config['brightness']
+    if 'brightness' in config:
+        camera.brightness = config['brightness']
+    if 'contrast' in config:
+        camera.contrast = config['contrast']
+    if 'saturation' in config:
+        camera.saturation = config['saturation']
+    if 'sharpness' in config:
+        camera.sharpness = config['sharpness']
     camera.start_preview()
     return camera
 
@@ -115,13 +174,20 @@ if len(sys.argv) > 1:
 
 # Initialise from config settings
 config = readconfig(configfilename)
-initstatus(config)
-camera = initcamera(config)
-foldername = initfolder(config, configfilename)
 filesuffix = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval']) + '.jpg'
 interval = config['interval']
 imagecount = config['maximages']
 jpegquality = config['quality']
+foldername = initfolder(config, configfilename)
+initgpio(config)
+initlights(True)
+initdht22(True)
+
+# If specified, wait before imaging
+if config['initialdelay'] is not None:
+    time.sleep(config['initialdelay'])
+
+camera = initcamera(config)
 
 # Loop continues until maximum image count is reached or battery fails
 print("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
@@ -131,3 +197,9 @@ while imagecount != 0:
     showstatus("green")
     time.sleep(interval)
     imagecount -= 1
+
+# If the loop terminates, power down lights and dht22
+initlights(False)
+initdht22(False)
+
+exit(0)
