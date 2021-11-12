@@ -31,6 +31,8 @@ Configuration is provided via a JSON file, with the following elements:
  - gpiolights = Raspberry Pi GPIO pin for activating lights in BOARD mode (default 37)
  - gpiodht22power = Raspberry Pi GPIO pin for enabling 3.3V power to DHT22 temperature/humidity sensor in BOARD mode (default 19)
  - gpiodht22data = Raspberry Pi GPIO pin for DHT22 temperature/humidity sensor data in BOARD mode (default 21)
+
+The default configuration file is AMT_config.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
 """
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
@@ -49,6 +51,14 @@ import os
 import RPi.GPIO as GPIO
 import sys
 import json
+import * from board
+import adafruit_dht
+
+# adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the corrent board Pin object
+dhtpins = [None, None, D2, None, D3, None, D4, D14, None, D15, 
+           D17, D18, D27, None, D22, D23, None, D24, D10, None,
+           D9, D25, D11, D8, None, D7, None, None, D5, None,
+           D6, D12, D13, None, D19, D16, D26, D20, None, D21]
 
 # Default configuration file location - can be overridden on command line
 configfilename = "/home/pi/AMT_config.json"
@@ -58,8 +68,9 @@ statuslight = False
 
 # Only enable dht22 sensor if specified in configuration file
 dht22 = False
+sensor = None
 
-# GPIO pins
+# GPIO pins - these may be varied within the configuration file - all use BOARD notation
 gpiogreen = 22
 gpiored = 26
 gpiolights = 37
@@ -79,7 +90,7 @@ def initgpio(config):
     GPIO.setmode(GPIO.BOARD)
     GPIO.setwarnings(False)
 
-    if 'statuslight' in config:
+    if 'statuslight' in config and config['statuslight']:
         statuslight = True
         if 'gpiogreen' in config:
             gpiogreen = config['gpiogreen']
@@ -89,14 +100,12 @@ def initgpio(config):
         GPIO.setup(gpiored, GPIO.OUT)
         showstatus("green")
 
-    if 'dht22' in config:
-        dht22 = True
+    if 'dht22' in config and config['dht22']:
         if 'gpiodht22power' in config:
             gpiodht22power = config['gpiodht22power']
         if 'gpiodht22data' in config:
             gpiodht22data = config['gpiodht22data']
         GPIO.setup(gpiodht22power, GPIO.OUT)
-        # TODO setup data
         
     if 'gpiolights' in config:
         gpiolights = config['gpiolights']
@@ -118,17 +127,19 @@ def showstatus(color):
             GPIO.output(gpiogreen, GPIO.LOW)
 
 # Turn lights on or off
-def initlights(activate):
+def enablelights(activate):
     global gpiolights
 
     GPIO.output(gpiolights, GPIO.HIGH if activate else GPIO.LOW)
 
 # Turn dht22 sensor on or off if enabled
-def initdht22(activate):
-    global dht22, gpiodht22power
+def enablesensor(activate):
+    global dht22, gpiodht22power, gpiodht22data, sensor
 
     if dht22:
         GPIO.output(gpiodht22power, GPIO.HIGH if activate else GPIO.LOW)
+        if activate:
+            sensor = adafruit_dht.DHT22(dhtpins[gpiodht22data - 1], use_pulseio=False)
 
 # Return camera initialised using properties from config file - note that camera is already in preview when returned
 def initcamera(config):
@@ -166,6 +177,17 @@ def initfolder(config, configfile):
     copyfile(configfile, configcopy)
     return foldername
 
+def readsensor()
+    global dht22, sensor
+
+    if dht22 and sensor is not None:
+        temperature = sensor.temperature
+        humidity = sensor.humidity
+        if temperature is not None and humidity is not None:
+            return "-TempC_" + str(temperature) + "-Humid_" + str(humidity)
+
+    return ""
+
 ### Main body ###
 
 # Optionally override default configuration file
@@ -174,14 +196,14 @@ if len(sys.argv) > 1:
 
 # Initialise from config settings
 config = readconfig(configfilename)
-filesuffix = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval']) + '.jpg'
+metadata = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
 interval = config['interval']
 imagecount = config['maximages']
 jpegquality = config['quality']
 foldername = initfolder(config, configfilename)
 initgpio(config)
-initlights(True)
-initdht22(True)
+enablelights(True)
+enablesensor(True)
 
 # If specified, wait before imaging
 if config['initialdelay'] is not None:
@@ -191,15 +213,16 @@ camera = initcamera(config)
 
 # Loop continues until maximum image count is reached or battery fails
 print("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
+
 while imagecount != 0:
     showstatus("red")
-    camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + filesuffix), quality=jpegquality)
+    camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + metadata + readsensor() + '.jpg'), quality=jpegquality)
     showstatus("green")
     time.sleep(interval)
     imagecount -= 1
 
 # If the loop terminates, power down lights and dht22
-initlights(False)
-initdht22(False)
+enablelights(False)
+enablesensor(False)
 
 exit(0)
