@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 AMT_TimeLapse.py - Collect Autonomous Moth Trap images on time lapse
 
