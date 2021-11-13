@@ -1,5 +1,5 @@
 /* 
- * Base bracked for Pi Zero in 171 x 121 x 80 mm enclosure
+ * Base bracket for Pi Zero in 171 x 121 x 80 mm enclosure
  *
  * This design produces a bracket that can be screwed/glued to one end
  * of the enclosure and that receives two 25 x 3 mm aluminium bar to space 
