@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+"""
+SegmentImages.py - Detect and extract blobs of interest in images from autonomous moth trap
+
+Processes a batch of images, identifies and extracts blobs of interest, and generates CSV data files for images and blobsCaptures a series of images and saves these with configuration metadata. Intended for use on outputs from an automonous moth trap. For more information see https://amt.hobern.net/.
+
+Configuration is provided via a JSON file, with the following elements:
+
+ - 
+
+The default configuration file is AMT_config.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
+"""
+__author__ = "Donald Hobern"
+__copyright__ = "Copyright 2021, Donald Hobern"
+__credits__ = ["Donald Hobern"]
+__license__ = "CC-BY-4.0"
+__version__ = "1.0.0"
+__maintainer__ = "Donald Hobern"
+__email__ = "dhobern@gmail.com"
+__status__ = "Production"
+
 import os
 import sys
 import re
