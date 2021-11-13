@@ -33,8 +33,6 @@ Configuration is provided via a JSON file, with the following elements:
  - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
 
 The default configuration file is AMT_TimeLapse.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
-
-Pins are specified 
 """
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
