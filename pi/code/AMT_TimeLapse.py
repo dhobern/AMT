@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-TimeLapse.py - Collect Autonomous Moth Trap images on time lapse
+AMT_TimeLapse.py - Collect Autonomous Moth Trap images on time lapse
 
 Captures a series of images and saves these with configuration metadata. Intended for use on a Raspberry Pi running as an automonous moth trap. For more information see https://amt.hobern.net/.
 
@@ -12,7 +12,7 @@ Configuration is provided via a JSON file, with the following elements:
  - operatingdistance: Purely to document the operating distance of the camera from the illuminated surface, in mm
  - mothlight: Purely to document for future users (e.g. "High-power LED tube: 4 UV, 1 green, 1 blue")
  - illumination: Purely to document for future users (e.g. "10-inch ring light")
- - mode: The operating model, one of "TimeLapse" or "Motion" (at present this script only supports TimeLapse)
+ - mode: The operating model, currently only "TimeLapse" is supported
  - imagewidth: Image width for camera resolution in pixels
  - imageheight: Image height for camera resolution in pixels
  - brightness: Image brightness for camera (0-100, PiCamera default is 50)
@@ -20,19 +20,19 @@ Configuration is provided via a JSON file, with the following elements:
  - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
  - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
  - quality: Image quality for camera (0-100, PiCamera default is 85)
- - interval: TimeLapse interval in seconds
+ - interval: Time lapse interval in seconds
  - initialdelay: Delay in seconds between enabling lights and DHT22 sensor before capturing images
  - maximages: Maximum number of images to collect (-1 for unlimited)
  - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
  - statuslight: Specify whether to use red/green status light (true/false, defaults to false)
- - dht22: Specify whether to use DHT22 temperature/humidity sensor (true/false, defaults to false)
+ - sensortype: Specify whether to use DHT11/DHT22 temperature/humidity sensor (one of "DHT22", "DHT11", "None")
  - gpiogreen = Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
  - gpiored = Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
  - gpiolights = Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
- - gpiodht22power = Raspberry Pi GPIO pin for enabling 3.3V power to DHT22 temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin)
- - gpiodht22data = Raspberry Pi GPIO pin for DHT22 temperature/humidity sensor data in BCM mode (default 9)
+ - gpiosensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
+ - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
 
-The default configuration file is AMT_config.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
+The default configuration file is AMT_TimeLapse.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
 
 Pins are specified 
 """
@@ -52,29 +52,31 @@ from shutil import copyfile
 import os
 import RPi.GPIO as GPIO
 import sys
+import signal
 import json
 from board import *
 import adafruit_dht
+import logging
 
 # adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the correct board Pin object from a BCM integer
 adafruitpins = [None, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27]
 
 # Default configuration file location - can be overridden on command line
-configfilename = "/home/pi/AMT_config.json"
+configfilename = "/home/pi/AMT_TimeLapse.json"
 
 # Only enable status light if specified in configuration file
 statuslight = False
 
-# Only enable dht22 sensor if specified in configuration file
-dht22 = False
+# Only enable sensor if specified in configuration file
+sensortype = None
 sensor = None
 
 # GPIO pins - these may be varied within the configuration file - all use BCM notation
 gpiogreen = 25
 gpiored = 7
 gpiolights = 26
-gpiodht22power = 10
-gpiodht22data = 9
+gpiosensorpower = 10
+gpiosensordata = 9
 
 # Read JSON config file and return as map
 def readconfig(path):
@@ -97,9 +99,9 @@ def selectadafruitpin(config, key, default):
     pin = selectpin(config, key, default)
     return adafruitpins[pin - 1]
     
-# Enable GPIO control and, if appropriate, enable status light, dht22 sensor and main lights
+# Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
 def initgpio(config):
-    global statuslight, dht22, gpiogreen, gpiored, gpiolights, gpiodht22power, gpiodht22data
+    global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
@@ -112,16 +114,18 @@ def initgpio(config):
         GPIO.setup(gpiored, GPIO.OUT)
         showstatus("green")
 
-    if 'dht22' in config and config['dht22']:
-        # After this call, gpiodht22data holds an adafruit Pin object
-        gpiodht22data = selectadafruitpin(config, 'gpiodht22data', gpiodht22data)
+    if 'sensortype' in config and config['sensortype'] in ["DHT22", "DHT11"]:
+        sensortype = config['sensortype']
+        # After this call, gpiosensordata holds an adafruit Pin object
+        gpiosensordata = selectadafruitpin(config, 'gpiosensordata', gpiosensordata)
         # Allow -1 for power pin if attached directly to voltage pin
-        gpiodht22power = selectpin(config, 'gpiodht22power', gpiodht22power, True)
-        if gpiodht22power > 0:
-            GPIO.setup(gpiodht22power, GPIO.OUT)
+        gpiosensorpower = selectpin(config, 'gpiosensorpower', gpiosensorpower, True)
+        if gpiosensorpower > 0:
+            GPIO.setup(gpiosensorpower, GPIO.OUT)
         
     gpiolights = selectpin(config, 'gpiolights', gpiolights)
     GPIO.setup(gpiolights, GPIO.OUT)
+    logging.info("GPIO pins enabled")
 
 # Set status light to red or green - does nothing if statuslight is false
 def showstatus(color):
@@ -143,17 +147,24 @@ def enablelights(activate):
     global gpiolights
 
     GPIO.output(gpiolights, GPIO.HIGH if activate else GPIO.LOW)
+    logging.info("Lights enabled" if activate else "Lights disabled")
 
-# Turn dht22 sensor on or off if enabled
+# Turn sensor sensor on or off if enabled
 def enablesensor(activate):
-    global dht22, gpiodht22power, gpiodht22data, sensor
+    global sensortype, gpiosensorpower, gpiosensordata, sensor
 
-    if dht22:
-        # Power may be hardwired (gpiodht22power == -1)
-        if gpiodht22power > 0:
-            GPIO.output(gpiodht22power, GPIO.HIGH if activate else GPIO.LOW)
+    if sensortype is not None:
+        # Power may be hardwired (gpiosensorpower == -1)
+        if gpiosensorpower > 0:
+            GPIO.output(gpiosensorpower, GPIO.HIGH if activate else GPIO.LOW)
         if activate:
-            sensor = adafruit_dht.DHT22(gpiodht22data, use_pulseio=False)
+            if sensortype == "DHT22":
+                sensor = adafruit_dht.DHT22(gpiosensordata, use_pulseio=False)
+            elif sensortype == "DHT11":
+                sensor = adafruit_dht.DHT11(gpiosensordata, use_pulseio=False)
+            logging.info("Sensor enabled")
+        else:
+            logging.info("Sensor disabled")
 
 # Return camera initialised using properties from config file - note that camera is already in preview when returned
 def initcamera(config):
@@ -168,6 +179,7 @@ def initcamera(config):
     if 'sharpness' in config:
         camera.sharpness = config['sharpness']
     camera.start_preview()
+    logging.info("Camera initialised")
     return camera
 
 # Create target folder for this run and make a copy of the current configfile to allow future interpretation
@@ -187,26 +199,45 @@ def initfolder(config, configfile):
         configcopy = os.path.join(foldername, filename[0:extensionoffset] + "-" + timestamp + filename[extensionoffset:])
     else:
         configcopy = os.path.join(foldername, filename + "-" + timestamp)
-    print("Copying configuration to " + configcopy)
     copyfile(configfile, configcopy)
+    logging.info("Output folder created: " + foldername)
     return foldername
 
 def readsensor():
     global sensor
 
     if sensor is not None:
-        temperature = sensor.temperature
-        humidity = sensor.humidity
-        if temperature is not None and humidity is not None:
-            return "-TempC_" + str(temperature) + "-Humid_" + str(humidity)
+        try:
+            temperature = sensor.temperature
+            humidity = sensor.humidity
+            if temperature is not None and humidity is not None:
+                return "-TempC_" + str(temperature) + "-Humid_" + str(humidity)
+        except RuntimeError:
+            print("Failed to read sensor")
 
     return ""
 
+# Clean up after exception
+def signal_handler(sig, frame):
+    enablelights(False)
+    enablesensor(False)
+    logging.error("Caught signal - terminating")
+    sys.exit(0)
+
 ### Main body ###
+
+# Initalise log
+logging.basicConfig(filename="AMT_TimeLapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+logging.info("######################")
+logging.info("AMT_TimeLapse.py BEGIN")
+
+# Handle errors gracefully
+signal.signal(signal.SIGINT, signal_handler)
 
 # Optionally override default configuration file
 if len(sys.argv) > 1:
     configfilename = sys.argv[1]
+logging.info("Config file: " + configfilename)
 
 # Initialise from config settings
 config = readconfig(configfilename)
@@ -217,16 +248,19 @@ jpegquality = config['quality']
 foldername = initfolder(config, configfilename)
 initgpio(config)
 enablelights(True)
-enablesensor(True)
+if sensortype is not None:
+    enablesensor(True)
+    logging.info(sensortype + " sensor enabled")
 
 # If specified, wait before imaging
 if config['initialdelay'] is not None:
+    logging.info("Initial delay: " + str(config['initialdelay']) + " seconds")
     time.sleep(config['initialdelay'])
 
 camera = initcamera(config)
 
 # Loop continues until maximum image count is reached or battery fails
-print("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
+logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
 while imagecount != 0:
     showstatus("red")
@@ -235,8 +269,11 @@ while imagecount != 0:
     time.sleep(interval)
     imagecount -= 1
 
-# If the loop terminates, power down lights and dht22
+logging.info("Time series complete")
+
+# If the loop terminates, power down lights and sensor
 enablelights(False)
 enablesensor(False)
+logging.info("AMT_TimeLapse.py END")
 
 exit(0)

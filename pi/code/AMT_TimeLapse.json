@@ -13,10 +13,10 @@
    "saturation": 10,
    "sharpness": 10,
    "quality": 70,
-   "interval": 20,
-   "initialdelay": 120,
-   "maximages": 180,
+   "interval": 5,
+   "initialdelay": 5,
+   "maximages": 3,
    "folder": "/home/pi/AMT",
    "statuslight": true,
-   "dht22": false
+   "sensortype": "None"
 }
