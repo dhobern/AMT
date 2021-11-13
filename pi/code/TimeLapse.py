@@ -26,13 +26,15 @@ Configuration is provided via a JSON file, with the following elements:
  - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
  - statuslight: Specify whether to use red/green status light (true/false, defaults to false)
  - dht22: Specify whether to use DHT22 temperature/humidity sensor (true/false, defaults to false)
- - gpiogreen = Raspberry Pi GPIO pin for green side of red/green GPIO pin in BOARD mode (default 22)
- - gpiored = Raspberry Pi GPIO pin for red side of red/green GPIO pin in BOARD mode (default 26)
- - gpiolights = Raspberry Pi GPIO pin for activating lights in BOARD mode (default 37)
- - gpiodht22power = Raspberry Pi GPIO pin for enabling 3.3V power to DHT22 temperature/humidity sensor in BOARD mode (default 19)
- - gpiodht22data = Raspberry Pi GPIO pin for DHT22 temperature/humidity sensor data in BOARD mode (default 21)
+ - gpiogreen = Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
+ - gpiored = Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
+ - gpiolights = Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
+ - gpiodht22power = Raspberry Pi GPIO pin for enabling 3.3V power to DHT22 temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin)
+ - gpiodht22data = Raspberry Pi GPIO pin for DHT22 temperature/humidity sensor data in BCM mode (default 9)
 
 The default configuration file is AMT_config.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
+
+Pins are specified 
 """
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
@@ -51,14 +53,11 @@ import os
 import RPi.GPIO as GPIO
 import sys
 import json
-import * from board
+from board import *
 import adafruit_dht
 
-# adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the corrent board Pin object
-dhtpins = [None, None, D2, None, D3, None, D4, D14, None, D15, 
-           D17, D18, D27, None, D22, D23, None, D24, D10, None,
-           D9, D25, D11, D8, None, D7, None, None, D5, None,
-           D6, D12, D13, None, D19, D16, D26, D20, None, D21]
+# adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the correct board Pin object from a BCM integer
+adafruitpins = [None, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27]
 
 # Default configuration file location - can be overridden on command line
 configfilename = "/home/pi/AMT_config.json"
@@ -70,45 +69,58 @@ statuslight = False
 dht22 = False
 sensor = None
 
-# GPIO pins - these may be varied within the configuration file - all use BOARD notation
-gpiogreen = 22
-gpiored = 26
-gpiolights = 37
-gpiodht22power = 19
-gpiodht22data = 21
+# GPIO pins - these may be varied within the configuration file - all use BCM notation
+gpiogreen = 25
+gpiored = 7
+gpiolights = 26
+gpiodht22power = 10
+gpiodht22data = 9
 
 # Read JSON config file and return as map
 def readconfig(path):
     with open(path) as file:
         data = json.load(file)
-    return data
+    return data 
 
+# Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
+def selectpin(config, key, default, nullable = False):
+    if key in config:
+        value = config[key]
+        if value >= 2 and value <= 27:
+            return value
+        elif nullable and value == -1:
+            return -1
+    return default
+
+# Validate config value for GPIO pin and return the adafruit Pin object for it or the default
+def selectadafruitpin(config, key, default):
+    pin = selectpin(config, key, default)
+    return adafruitpins[pin - 1]
+    
 # Enable GPIO control and, if appropriate, enable status light, dht22 sensor and main lights
 def initgpio(config):
     global statuslight, dht22, gpiogreen, gpiored, gpiolights, gpiodht22power, gpiodht22data
 
-    GPIO.setmode(GPIO.BOARD)
+    GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
 
     if 'statuslight' in config and config['statuslight']:
         statuslight = True
-        if 'gpiogreen' in config:
-            gpiogreen = config['gpiogreen']
-        if 'gpiored' in config:
-            gpiored = config['gpiored']
+        gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
+        gpiored = selectpin(config, 'gpiored', gpiored)
         GPIO.setup(gpiogreen, GPIO.OUT)
         GPIO.setup(gpiored, GPIO.OUT)
         showstatus("green")
 
     if 'dht22' in config and config['dht22']:
-        if 'gpiodht22power' in config:
-            gpiodht22power = config['gpiodht22power']
-        if 'gpiodht22data' in config:
-            gpiodht22data = config['gpiodht22data']
-        GPIO.setup(gpiodht22power, GPIO.OUT)
+        # After this call, gpiodht22data holds an adafruit Pin object
+        gpiodht22data = selectadafruitpin(config, 'gpiodht22data', gpiodht22data)
+        # Allow -1 for power pin if attached directly to voltage pin
+        gpiodht22power = selectpin(config, 'gpiodht22power', gpiodht22power, True)
+        if gpiodht22power > 0:
+            GPIO.setup(gpiodht22power, GPIO.OUT)
         
-    if 'gpiolights' in config:
-        gpiolights = config['gpiolights']
+    gpiolights = selectpin(config, 'gpiolights', gpiolights)
     GPIO.setup(gpiolights, GPIO.OUT)
 
 # Set status light to red or green - does nothing if statuslight is false
@@ -137,9 +149,11 @@ def enablesensor(activate):
     global dht22, gpiodht22power, gpiodht22data, sensor
 
     if dht22:
-        GPIO.output(gpiodht22power, GPIO.HIGH if activate else GPIO.LOW)
+        # Power may be hardwired (gpiodht22power == -1)
+        if gpiodht22power > 0:
+            GPIO.output(gpiodht22power, GPIO.HIGH if activate else GPIO.LOW)
         if activate:
-            sensor = adafruit_dht.DHT22(dhtpins[gpiodht22data - 1], use_pulseio=False)
+            sensor = adafruit_dht.DHT22(gpiodht22data, use_pulseio=False)
 
 # Return camera initialised using properties from config file - note that camera is already in preview when returned
 def initcamera(config):
@@ -177,10 +191,10 @@ def initfolder(config, configfile):
     copyfile(configfile, configcopy)
     return foldername
 
-def readsensor()
-    global dht22, sensor
+def readsensor():
+    global sensor
 
-    if dht22 and sensor is not None:
+    if sensor is not None:
         temperature = sensor.temperature
         humidity = sensor.humidity
         if temperature is not None and humidity is not None:
