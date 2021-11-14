@@ -76,6 +76,9 @@ gpiolights = 26
 gpiosensorpower = 10
 gpiosensordata = 9
 
+originalgreen = GPIO.LOW
+originalred = GPIO.LOW
+
 # Read JSON config file and return as map
 def readconfig(path):
     with open(path) as file:
@@ -99,7 +102,7 @@ def selectadafruitpin(config, key, default):
     
 # Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
 def initgpio(config):
-    global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata
+    global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata, originalgreen, originalred
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
@@ -110,6 +113,8 @@ def initgpio(config):
         gpiored = selectpin(config, 'gpiored', gpiored)
         GPIO.setup(gpiogreen, GPIO.OUT)
         GPIO.setup(gpiored, GPIO.OUT)
+        originalgreen = GPIO.input(gpiogreen)
+        originalred = GPIO.input(gpiored)
         showstatus("green")
 
     if 'sensortype' in config and config['sensortype'] in ["DHT22", "DHT11"]:
@@ -127,7 +132,7 @@ def initgpio(config):
 
 # Set status light to red or green - does nothing if statuslight is false
 def showstatus(color):
-    global statuslight, gpiogreen, gpiored
+    global statuslight, gpiogreen, gpiored, originalgreen, originalred
 
     if statuslight:
         if color == "red":
@@ -136,6 +141,9 @@ def showstatus(color):
         elif color == "green":
             GPIO.output(gpiored, GPIO.LOW)
             GPIO.output(gpiogreen, GPIO.HIGH)
+        elif color == "reset":
+            GPIO.output(gpiored, originalred)
+            GPIO.output(gpiogreen, originalgreen)
         else:
             GPIO.output(gpiored, GPIO.LOW)
             GPIO.output(gpiogreen, GPIO.LOW)
@@ -219,6 +227,7 @@ def readsensor():
 def signal_handler(sig, frame):
     enablelights(False)
     enablesensor(False)
+    showstatus("reset")
     logging.error("Caught signal - terminating")
     sys.exit(0)
 
@@ -272,6 +281,7 @@ logging.info("Time series complete")
 # If the loop terminates, power down lights and sensor
 enablelights(False)
 enablesensor(False)
+showstatus("reset")
 logging.info("AMT_TimeLapse.py END")
 
 exit(0)
