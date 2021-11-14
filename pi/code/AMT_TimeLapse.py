@@ -107,14 +107,15 @@ def initgpio(config):
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
 
+    gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
+    gpiored = selectpin(config, 'gpiored', gpiored)
+    GPIO.setup(gpiogreen, GPIO.OUT)
+    GPIO.setup(gpiored, GPIO.OUT)
+    originalgreen = GPIO.input(gpiogreen)
+    originalred = GPIO.input(gpiored)
+
     if 'statuslight' in config and config['statuslight']:
         statuslight = True
-        gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
-        gpiored = selectpin(config, 'gpiored', gpiored)
-        GPIO.setup(gpiogreen, GPIO.OUT)
-        GPIO.setup(gpiored, GPIO.OUT)
-        originalgreen = GPIO.input(gpiogreen)
-        originalred = GPIO.input(gpiored)
         showstatus("green")
 
     if 'sensortype' in config and config['sensortype'] in ["DHT22", "DHT11"]:
@@ -141,12 +142,12 @@ def showstatus(color):
         elif color == "green":
             GPIO.output(gpiored, GPIO.LOW)
             GPIO.output(gpiogreen, GPIO.HIGH)
-        elif color == "reset":
-            GPIO.output(gpiored, originalred)
-            GPIO.output(gpiogreen, originalgreen)
-        else:
-            GPIO.output(gpiored, GPIO.LOW)
-            GPIO.output(gpiogreen, GPIO.LOW)
+    elif color == "reset":
+        GPIO.output(gpiored, originalred)
+        GPIO.output(gpiogreen, originalgreen)
+    else:
+        GPIO.output(gpiored, GPIO.LOW)
+        GPIO.output(gpiogreen, GPIO.LOW)
 
 # Turn lights on or off
 def enablelights(activate):
