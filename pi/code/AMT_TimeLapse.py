@@ -67,8 +67,6 @@ sensortype = None
 sensor = None
 
 # GPIO pins - these may be varied within the configuration file - all use BCM notation
-gpiogreen = 25
-gpiored = 7
 gpiolights = 26
 gpiosensorpower = 10
 gpiosensordata = 9
@@ -182,7 +180,7 @@ def readsensor():
 def signal_handler(sig, frame):
     enablelights(False)
     enablesensor(False)
-    showstatus("reset")
+    showstatus(originalstatus)
     logging.error("Caught signal - terminating")
     sys.exit(0)
 
@@ -228,9 +226,11 @@ def main():
     logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
     while imagecount != 0:
-        showstatus("red")
+        if statuslight:
+            showstatus("red")
         camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), quality=jpegquality)
-        showstatus("green")
+        if statuslight:
+            showstatus("green")
         time.sleep(interval)
         imagecount -= 1
 

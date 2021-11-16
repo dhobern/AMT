@@ -133,7 +133,7 @@ def showstatus(color, flashcount = 0):
             time.sleep(1)
             flashcount -= 1
     else:
-        GPIO.output(26, red)
+        GPIO.output(gpiored, red)
         GPIO.output(gpiogreen, green)
     
 """
