@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AMT_TimeLapse.py - Collect Autonomous Moth Trap images on time lapse
+amt_timelapse - Collect Autonomous Moth Trap images on time lapse
 
 Captures a series of images and saves these with configuration metadata. Intended for use on a Raspberry Pi running as an automonous moth trap. For more information see https://amt.hobern.net/.
 
@@ -57,13 +57,7 @@ import adafruit_dht
 import logging
 
 # Common utility functions
-import AMT_Tools
-
-# adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the correct board Pin object from a BCM integer
-adafruitpins = [None, None, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27]
-
-# Default configuration file location - can be overridden on command line
-configfilename = "/home/pi/AMT_TimeLapse.json"
+from amt_util import *
 
 # Only enable status light if specified in configuration file
 statuslight = False
@@ -79,50 +73,28 @@ gpiolights = 26
 gpiosensorpower = 10
 gpiosensordata = 9
 
-originalgreen = GPIO.LOW
-originalred = GPIO.LOW
+originalstatus = "off"
 
-# Read JSON config file and return as map
-def readconfig(path):
-    with open(path) as file:
-        data = json.load(file)
-        if "latitude" in data and "longitude" in data and data["latitude"] is not None and data["longitude"] is not None:
-            sunset, sunrise = AMT_Tools.getsuntimes(data["latitude"], data["longitude"])
-            data["sunset"] =     sunset.isoformat()
-            data["sunrise"] = sunrise.isoformat()
-            data["lunarphase"] = AMT_Tools.getlunarphase()
-            data["program"] = " ".join(sys.argv)
-            data["version"] = __version__
-    return data 
+# Store additional metadata in config dictionary
+def addmetadata(config):
+    if "latitude" in config and "longitude" in config and config["latitude"] is not None and config["longitude"] is not None:
+        sunset, sunrise = getsuntimes(config["latitude"], config["longitude"])
+        config["sunset"] = sunset.isoformat()
+        config["sunrise"] = sunrise.isoformat()
+    config["lunarphase"] = getlunarphase()
+    config["program"] = " ".join(sys.argv)
+    config["version"] = __version__
+    return config 
 
-# Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
-def selectpin(config, key, default, nullable = False):
-    if key in config:
-        value = config[key]
-        if value >= 2 and value <= 27:
-            return value
-        elif nullable and value == -1:
-            return -1
-    return default
-
-# Validate config value for GPIO pin and return the adafruit Pin object for it or the default
-def selectadafruitpin(config, key, default):
-    pin = selectpin(config, key, default)
-    return adafruitpins[pin]
-    
 # Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
 def initgpio(config):
-    global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata, originalgreen, originalred
+    global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata, originalstatus
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
 
-    gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
-    gpiored = selectpin(config, 'gpiored', gpiored)
-    GPIO.setup(gpiogreen, GPIO.OUT)
-    GPIO.setup(gpiored, GPIO.OUT)
-    originalgreen = GPIO.input(gpiogreen)
-    originalred = GPIO.input(gpiored)
+    # Set up status light and store original color
+    originalstatus = initstatus(config)
 
     if 'statuslight' in config and config['statuslight']:
         statuslight = True
@@ -140,24 +112,6 @@ def initgpio(config):
     gpiolights = selectpin(config, 'gpiolights', gpiolights)
     GPIO.setup(gpiolights, GPIO.OUT)
     logging.info("GPIO pins enabled")
-
-# Set status light to red or green - does nothing if statuslight is false
-def showstatus(color):
-    global statuslight, gpiogreen, gpiored, originalgreen, originalred
-
-    if statuslight:
-        if color == "red":
-            GPIO.output(gpiored, GPIO.HIGH)
-            GPIO.output(gpiogreen, GPIO.LOW)
-        elif color == "green":
-            GPIO.output(gpiored, GPIO.LOW)
-            GPIO.output(gpiogreen, GPIO.HIGH)
-    elif color == "reset":
-        GPIO.output(gpiored, originalred)
-        GPIO.output(gpiogreen, originalgreen)
-    else:
-        GPIO.output(gpiored, GPIO.LOW)
-        GPIO.output(gpiogreen, GPIO.LOW)
 
 # Turn lights on or off
 def enablelights(activate):
@@ -235,7 +189,7 @@ def signal_handler(sig, frame):
 # Main body - initialise, run and clean up
 def main():
     global configfilename
-    
+
     # Initalise log
     logging.basicConfig(filename="AMT_TimeLapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
     logging.info("######################")
@@ -250,8 +204,9 @@ def main():
     logging.info("Config file: " + configfilename)
 
     # Initialise from config settings
-    config = readconfig(configfilename)
-    metadata = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
+    config = loadconfig(configfilename)
+    addmetadata(config)
+    labeltext = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
     interval = config['interval']
     imagecount = config['maximages']
     jpegquality = config['quality']
@@ -274,7 +229,7 @@ def main():
 
     while imagecount != 0:
         showstatus("red")
-        camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + metadata + readsensor() + '.jpg'), quality=jpegquality)
+        camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), quality=jpegquality)
         showstatus("green")
         time.sleep(interval)
         imagecount -= 1
@@ -284,7 +239,7 @@ def main():
     # If the loop terminates, power down lights and sensor
     enablelights(False)
     enablesensor(False)
-    showstatus("reset")
+    showstatus(originalstatus)
     logging.info("AMT_TimeLapse.py END")
 
 # Run main
