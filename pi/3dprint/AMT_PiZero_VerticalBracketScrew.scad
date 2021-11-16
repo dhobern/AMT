@@ -16,13 +16,13 @@ length = 60;
 width = 25;
 
 // Slightly looser than for the tightly clamped fittings
-barwidth = 25.3;
-bardepth = 3.3;
+barwidth = 25.4;
+bardepth = 3.4;
 barmargin = 5;
 thickness = 3;
-screwdiam = 3.2;
-screwrecessdiam = 8;
-screwrecessdepth = 2;
+outerthickness = 8;
+screwdiam = 2.5;
+
 clearance = 2;
 
 centrelength = barwidth + 2 * barmargin;
@@ -37,7 +37,7 @@ rotate([90, 0, 0]) {
     difference() {
         // main block
         union() {
-            cube([length, width, thickness + screwrecessdepth]);
+            cube([length, width, outerthickness]);
             translate([(length - centrelength) / 2, 0, 0]) {
                 cube([centrelength, width, bardepth + 3 * thickness + clearance]);
             }
@@ -48,10 +48,7 @@ rotate([90, 0, 0]) {
         for (i = [(length - centrelength) / 4, length - (length - centrelength) / 4]) {
             for(j = [width * 0.25, width * 0.75]) {
                 translate([i, j, -fudge]) {
-                    cylinder(d = screwdiam, h = bardepth + 2 * thickness + screwrecessdepth + fudge2);
-                    translate([0, 0, thickness]) { 
-                        cylinder(d = screwrecessdiam, h = screwrecessdepth + fudge2);
-                    }
+                    cylinder(d = screwdiam, h = outerthickness - 1);
                 }
             }
         }
