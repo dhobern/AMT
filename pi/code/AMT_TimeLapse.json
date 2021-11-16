@@ -18,5 +18,7 @@
    "maximages": 3,
    "folder": "/home/pi/AMT",
    "statuslight": true,
-   "sensortype": "None"
+   "sensortype": "None",
+   "latitude": -25.261,
+   "longitude": 149.084
 }

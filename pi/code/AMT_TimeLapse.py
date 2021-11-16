@@ -38,7 +38,7 @@ __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
 __license__ = "CC-BY-4.0"
-__version__ = "1.0.0"
+__version__ = "0.9.1"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"
 __status__ = "Production"
@@ -56,8 +56,11 @@ from board import *
 import adafruit_dht
 import logging
 
+# Common utility functions
+import AMT_Tools
+
 # adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the correct board Pin object from a BCM integer
-adafruitpins = [None, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27]
+adafruitpins = [None, None, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27]
 
 # Default configuration file location - can be overridden on command line
 configfilename = "/home/pi/AMT_TimeLapse.json"
@@ -83,6 +86,13 @@ originalred = GPIO.LOW
 def readconfig(path):
     with open(path) as file:
         data = json.load(file)
+        if "latitude" in data and "longitude" in data and data["latitude"] is not None and data["longitude"] is not None:
+            sunset, sunrise = AMT_Tools.getsuntimes(data["latitude"], data["longitude"])
+            data["sunset"] =     sunset.isoformat()
+            data["sunrise"] = sunrise.isoformat()
+            data["lunarphase"] = AMT_Tools.getlunarphase()
+            data["program"] = " ".join(sys.argv)
+            data["version"] = __version__
     return data 
 
 # Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
@@ -98,7 +108,7 @@ def selectpin(config, key, default, nullable = False):
 # Validate config value for GPIO pin and return the adafruit Pin object for it or the default
 def selectadafruitpin(config, key, default):
     pin = selectpin(config, key, default)
-    return adafruitpins[pin - 1]
+    return adafruitpins[pin]
     
 # Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
 def initgpio(config):
@@ -190,23 +200,13 @@ def initcamera(config):
     return camera
 
 # Create target folder for this run and make a copy of the current configfile to allow future interpretation
-def initfolder(config, configfile):
+def initfolder(config):
     if not os.path.isdir(config['folder']):
         os.mkdir(config['folder'])
     timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
     foldername = os.path.join(config['folder'], timestamp)
     os.mkdir(foldername)
-    slashoffset = configfile.rfind("/")
-    if slashoffset >= 0:
-        filename = configfile[slashoffset + 1:]
-    else:
-        filename = configfile
-    extensionoffset = filename.rfind(".")
-    if extensionoffset >= 0:
-        configcopy = os.path.join(foldername, filename[0:extensionoffset] + "-" + timestamp + filename[extensionoffset:])
-    else:
-        configcopy = os.path.join(foldername, filename + "-" + timestamp)
-    copyfile(configfile, configcopy)
+    json.dump(config, open(os.path.join(foldername, "AMT_TimeLapse.json"), "w"), indent = 4)
     logging.info("Output folder created: " + foldername)
     return foldername
 
@@ -232,57 +232,59 @@ def signal_handler(sig, frame):
     logging.error("Caught signal - terminating")
     sys.exit(0)
 
-### Main body ###
+# Main body - initialise, run and clean up
+def main():
+    # Initalise log
+    logging.basicConfig(filename="AMT_TimeLapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+    logging.info("######################")
+    logging.info("AMT_TimeLapse.py BEGIN")
 
-# Initalise log
-logging.basicConfig(filename="AMT_TimeLapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
-logging.info("######################")
-logging.info("AMT_TimeLapse.py BEGIN")
+    # Handle errors gracefully
+    signal.signal(signal.SIGINT, signal_handler)
 
-# Handle errors gracefully
-signal.signal(signal.SIGINT, signal_handler)
+    # Optionally override default configuration file
+    if len(sys.argv) > 1:
+        configfilename = sys.argv[1]
+    logging.info("Config file: " + configfilename)
 
-# Optionally override default configuration file
-if len(sys.argv) > 1:
-    configfilename = sys.argv[1]
-logging.info("Config file: " + configfilename)
+    # Initialise from config settings
+    config = readconfig(configfilename)
+    metadata = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
+    interval = config['interval']
+    imagecount = config['maximages']
+    jpegquality = config['quality']
+    foldername = initfolder(config)
+    initgpio(config)
+    enablelights(True)
+    if sensortype is not None:
+        enablesensor(True)
+        logging.info(sensortype + " sensor enabled")
 
-# Initialise from config settings
-config = readconfig(configfilename)
-metadata = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
-interval = config['interval']
-imagecount = config['maximages']
-jpegquality = config['quality']
-foldername = initfolder(config, configfilename)
-initgpio(config)
-enablelights(True)
-if sensortype is not None:
-    enablesensor(True)
-    logging.info(sensortype + " sensor enabled")
+    # If specified, wait before imaging
+    if config['initialdelay'] is not None:
+        logging.info("Initial delay: " + str(config['initialdelay']) + " seconds")
+        time.sleep(config['initialdelay'])
 
-# If specified, wait before imaging
-if config['initialdelay'] is not None:
-    logging.info("Initial delay: " + str(config['initialdelay']) + " seconds")
-    time.sleep(config['initialdelay'])
+    camera = initcamera(config)
 
-camera = initcamera(config)
+    # Loop continues until maximum image count is reached or battery fails
+    logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
-# Loop continues until maximum image count is reached or battery fails
-logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
+    while imagecount != 0:
+        showstatus("red")
+        camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + metadata + readsensor() + '.jpg'), quality=jpegquality)
+        showstatus("green")
+        time.sleep(interval)
+        imagecount -= 1
 
-while imagecount != 0:
-    showstatus("red")
-    camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + metadata + readsensor() + '.jpg'), quality=jpegquality)
-    showstatus("green")
-    time.sleep(interval)
-    imagecount -= 1
+    logging.info("Time series complete")
 
-logging.info("Time series complete")
+    # If the loop terminates, power down lights and sensor
+    enablelights(False)
+    enablesensor(False)
+    showstatus("reset")
+    logging.info("AMT_TimeLapse.py END")
 
-# If the loop terminates, power down lights and sensor
-enablelights(False)
-enablesensor(False)
-showstatus("reset")
-logging.info("AMT_TimeLapse.py END")
-
-exit(0)
+# Run main
+if __name__=="__main__": 
+   main()
