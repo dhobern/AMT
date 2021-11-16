@@ -234,6 +234,8 @@ def signal_handler(sig, frame):
 
 # Main body - initialise, run and clean up
 def main():
+    global configfilename
+    
     # Initalise log
     logging.basicConfig(filename="AMT_TimeLapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
     logging.info("######################")
