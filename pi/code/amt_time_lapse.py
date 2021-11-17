@@ -32,7 +32,7 @@ Configuration is provided via a JSON file, with the following elements:
  - gpiosensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
  - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
 
-The default configuration file is AMT_TimeLapse.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
+The default configuration file is amt_timelapse.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
 """
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
@@ -158,7 +158,7 @@ def initfolder(config):
     timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
     foldername = os.path.join(config['folder'], timestamp)
     os.mkdir(foldername)
-    json.dump(config, open(os.path.join(foldername, "AMT_TimeLapse.json"), "w"), indent = 4)
+    json.dump(config, open(os.path.join(foldername, "amt_metadata.json"), "w"), indent = 4)
     logging.info("Output folder created: " + foldername)
     return foldername
 
@@ -189,9 +189,9 @@ def main():
     global configfilename
 
     # Initalise log
-    logging.basicConfig(filename="AMT_TimeLapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+    logging.basicConfig(filename="amt_timelapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
     logging.info("######################")
-    logging.info("AMT_TimeLapse.py BEGIN")
+    logging.info("amt_timelapse.py BEGIN")
 
     # Handle errors gracefully
     signal.signal(signal.SIGINT, signal_handler)
@@ -240,7 +240,7 @@ def main():
     enablelights(False)
     enablesensor(False)
     showstatus(originalstatus)
-    logging.info("AMT_TimeLapse.py END")
+    logging.info("amt_timelapse.py END")
 
 # Run main
 if __name__=="__main__": 
