@@ -124,6 +124,15 @@ def showstatus(color, flashcount = 0):
     green = GPIO.HIGH if color == 'green' else GPIO.LOW
 
     if flashcount > 0:
+        # Remember current setting
+        currentred = GPIO.input(gpiored)
+        currentgreen = GPIO.input(gpiogreen)
+
+        # Ensure that the first flash is distinct
+        if red == currentred and green == currentgreen:
+            GPIO.output(gpiored, GPIO.LOW)
+            GPIO.output(gpiogreen, GPIO.LOW)
+            time.sleep(1)
         while flashcount > 0:
             GPIO.output(gpiored, red)
             GPIO.output(gpiogreen, green)
@@ -132,6 +141,10 @@ def showstatus(color, flashcount = 0):
             GPIO.output(gpiogreen, GPIO.LOW)
             time.sleep(1)
             flashcount -= 1
+
+        # Reset colour
+        GPIO.output(gpiored, currentred)
+        GPIO.output(gpiogreen, currentgreen)
     else:
         GPIO.output(gpiored, red)
         GPIO.output(gpiogreen, green)
