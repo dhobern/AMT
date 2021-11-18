@@ -13,20 +13,20 @@
  */
 
 // From AMT_PiZero_BaseBracket 
-length = 60; 
-width = 25;
 
-// Slightly looser than for the tightly clamped fittings
-barwidth = 25.3;
-bardepth = 3.3;
-barmargin = 5;
-thickness = 2;
-outerthickness = 4;
+yrange = 12.5;
+xrange = 47.7;
+xspacing = 145.8;
 screwdiam = 2.5;
+margin = 2;
 
-clearance = 2;
+thickness = 2.5;
 
-centrelength = barwidth + 2 * barmargin;
+notchl = 5;
+notchw = 1.5;
+
+length = xspacing + xrange + screwdiam + 2 * margin; 
+width = yrange + screwdiam + 2 * margin;
 
 // To adjust design and ensure that the design is at least mostly manifold.
 fudge = 0.1;
@@ -35,18 +35,22 @@ fudge2 = 0.2;
 $fn = 360;
 
 difference() {
-    // main block
-    union() {
-        cube([length, width, outerthickness]);
-    }
-    translate([(length - barwidth) / 2, -fudge, thickness]) {
-        cube([barwidth, width + fudge2, bardepth]);
-    }
-    for (i = [(length - centrelength) / 4, length - (length - centrelength) / 4]) {
-        for(j = [width * 0.25, width * 0.75]) {
-            translate([i, j, -fudge]) {
-                cylinder(d = screwdiam, h = outerthickness +fudge2);
+    cube([length, width, thickness]);
+    for (i = [0, xrange, xspacing, xspacing + xrange]) {
+        for(j = [0, yrange]) {
+            translate([i + margin + screwdiam / 2, j + margin + screwdiam / 2, -fudge]) {
+                cylinder(d = screwdiam, h = thickness + fudge2);
             }
+        }
+    }
+    for (i = [0, length / 2, length]) {
+        translate([i - notchl / 2, (width - notchw) / 2, -fudge]) {
+            cube([notchl, notchw, thickness + fudge2]);
+        }
+    }
+    for (i = [0, width / 2, width]) {
+        translate([(length - notchw) / 2, i - notchl / 2, -fudge]) {
+            cube([notchw, notchl, thickness + fudge2]);
         }
     }
 }

@@ -21,7 +21,7 @@ bardepth = 3.4;
 barmargin = 5;
 thickness = 3;
 outerthickness = 8;
-screwdiam = 2.5;
+screwdiam = 2.8;
 
 clearance = 2;
 
@@ -48,7 +48,7 @@ rotate([90, 0, 0]) {
         for (i = [(length - centrelength) / 4, length - (length - centrelength) / 4]) {
             for(j = [width * 0.25, width * 0.75]) {
                 translate([i, j, -fudge]) {
-                    cylinder(d = screwdiam, h = outerthickness - 1);
+                    cylinder(d = screwdiam, h = outerthickness + fudge2);
                 }
             }
         }
