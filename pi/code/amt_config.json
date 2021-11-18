@@ -13,12 +13,12 @@
    "saturation": 10,
    "sharpness": 10,
    "quality": 70,
-   "interval": 5,
-   "initialdelay": 5,
-   "maximages": 3,
+   "interval": 20,
+   "initialdelay": 120,
+   "maximages": 270,
    "folder": "/home/pi/AMT",
    "statuslight": true,
    "sensortype": "None",
-   "latitude": -25.261,
+   "latitude": -35.261,
    "longitude": 149.084
 }
