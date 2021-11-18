@@ -64,7 +64,9 @@ Load configuration from a JSON file, with the following elements:
 
 The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter. 
 """
-def loadconfig(filename = "amt_config.json"):
+def loadconfig(filename = None):
+    if filename is None:
+        filename = "amt_config.json"
     data = {}
     with open(filename) as file:
         data = json.load(file)

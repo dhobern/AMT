@@ -1,8 +1,8 @@
 import adafruit_dht
 from board import *
 
-# GPIO10
-SENSOR_PIN = D10
+# GPIO09
+SENSOR_PIN = D9
 
 dht22 = adafruit_dht.DHT22(SENSOR_PIN, use_pulseio=False)
 

@@ -38,7 +38,7 @@ __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
 __license__ = "CC-BY-4.0"
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"
 __status__ = "Production"
@@ -52,12 +52,14 @@ import RPi.GPIO as GPIO
 import sys
 import signal
 import json
-from board import *
-import adafruit_dht
+import pigpio
+import DHT
 import logging
 
 # Common utility functions
 from amt_util import *
+
+#
 
 # Only enable status light if specified in configuration file
 statuslight = False
@@ -71,6 +73,10 @@ gpiolights = 26
 gpiosensorpower = 10
 gpiosensordata = 9
 
+# Object in pigpio to represent board
+pi = None
+
+# To remember state of status light before execution
 originalstatus = "off"
 
 # Store additional metadata in config dictionary
@@ -100,8 +106,7 @@ def initgpio(config):
 
     if 'sensortype' in config and config['sensortype'] in ["DHT22", "DHT11"]:
         sensortype = config['sensortype']
-        # After this call, gpiosensordata holds an adafruit Pin object
-        gpiosensordata = selectadafruitpin(config, 'gpiosensordata', gpiosensordata)
+        gpiosensordata = selectpin(config, 'gpiosensordata', gpiosensordata)
         # Allow -1 for power pin if attached directly to voltage pin
         gpiosensorpower = selectpin(config, 'gpiosensorpower', gpiosensorpower, True)
         if gpiosensorpower > 0:
@@ -120,19 +125,32 @@ def enablelights(activate):
 
 # Turn sensor sensor on or off if enabled
 def enablesensor(activate):
-    global sensortype, gpiosensorpower, gpiosensordata, sensor
+    global sensortype, gpiosensorpower, gpiosensordata, sensor, pi
 
     if sensortype is not None:
-        # Power may be hardwired (gpiosensorpower == -1)
-        if gpiosensorpower > 0:
-            GPIO.output(gpiosensorpower, GPIO.HIGH if activate else GPIO.LOW)
         if activate:
-            if sensortype == "DHT22":
-                sensor = adafruit_dht.DHT22(gpiosensordata, use_pulseio=False)
-            elif sensortype == "DHT11":
-                sensor = adafruit_dht.DHT11(gpiosensordata, use_pulseio=False)
-            logging.info("Sensor enabled")
+            # Power may be hardwired (gpiosensorpower == -1)
+            if gpiosensorpower > 0:
+                GPIO.output(gpiosensorpower, GPIO.HIGH)
+            pi = pigpio.pi()
+            try:
+                if sensortype == "DHT22":
+                    sensor = DHT.sensor(pi, gpiosensordata, DHT.DHTXX)
+                elif sensortype == "DHT11":
+                    sensor = DHT.sensor(pi, gpiosensordata, DHT.DHT11)
+                logging.info("Sensor enabled")
+            except:
+                logging.error("Could not initialise sensor")
+                pi.stop()
+                pi = None
+                sensor = None
+            
         else:
+            if sensor is not None:
+                sensor.cancel()
+                pi.stop()
+            if gpiosensorpower > 0:
+                GPIO.output(gpiosensorpower, GPIO.LOW)
             logging.info("Sensor disabled")
 
 # Return camera initialised using properties from config file - note that camera is already in preview when returned
@@ -162,17 +180,16 @@ def initfolder(config):
     logging.info("Output folder created: " + foldername)
     return foldername
 
+# Return string with temperature and humidity encoded or empty string otherwise
 def readsensor():
-    global sensor
+    global sensor, sensortype
 
     if sensor is not None:
-        try:
-            temperature = sensor.temperature
-            humidity = sensor.humidity
-            if temperature is not None and humidity is not None:
-                return "-TempC_" + str(temperature) + "-Humid_" + str(humidity)
-        except RuntimeError:
-            print("Failed to read sensor")
+        datum = sensor.read()
+        if datum[2] == 0:
+            return "-TempC_" + str(datum[3]) + "-Humid_" + str(datum[4])
+        else:
+            logging.error(sensortype + " sensor returned " + ["DHT_GOOD", "DHT_BAD_CHECKSUM", "DHT_BAD_DATA", "DHT_TIMEOUT"][datum[2]])
 
     return ""
 
@@ -186,8 +203,6 @@ def signal_handler(sig, frame):
 
 # Main body - initialise, run and clean up
 def main():
-    global configfilename
-
     # Initalise log
     logging.basicConfig(filename="amt_timelapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
     logging.info("######################")
@@ -199,7 +214,9 @@ def main():
     # Optionally override default configuration file
     if len(sys.argv) > 1:
         configfilename = sys.argv[1]
-    logging.info("Config file: " + configfilename)
+        logging.info("Config file: " + configfilename)
+    else:
+        configfilename = None
 
     # Initialise from config settings
     config = loadconfig(configfilename)

@@ -20,9 +20,10 @@ __status__ = "Production"
 
 import sys
 import time
-import amt_util
+from amt_util import *
 
 color = 'off'
+flashcount = 0
 
 if len(sys.argv) > 1:
     color = sys.argv[1]
