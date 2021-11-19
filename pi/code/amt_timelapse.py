@@ -32,7 +32,7 @@ Configuration is provided via a JSON file, with the following elements:
  - gpiosensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
  - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
 
-The default configuration file is amt_timelapse.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
+The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
 """
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
