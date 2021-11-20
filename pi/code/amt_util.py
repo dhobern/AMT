@@ -25,9 +25,7 @@ __status__ = "Production"
 from datetime import datetime, timedelta
 from suntime import Sun, SunTimeException
 from dateutil import tz
-from board import *
 import RPi.GPIO as GPIO
-import adafruit_dht
 import math
 import decimal
 import json
@@ -83,15 +81,6 @@ def selectpin(config, key, default, nullable = False):
         elif nullable and value == -1:
             return -1
     return default
-
-"""
-Validate config value for GPIO pin and return the adafruit Pin object for it or the default
-"""
-def selectadafruitpin(config, key, default):
-    pin = selectpin(config, key, default)
-    # adafruit_dht uses the CircuitPython board library to reference pins - this array is to select the correct board Pin object from a BCM integer
-    adafruitpins = [None, None, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27]
-    return adafruitpins[pin]
 
 """
 Default GPIO pins using BCM notation
