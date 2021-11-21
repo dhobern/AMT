@@ -60,7 +60,7 @@ Load configuration from a JSON file, with the following elements:
  - gpiosensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
  - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
 
-The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter. 
+The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter.
 """
 def loadconfig(filename = None):
     if filename is None:
@@ -68,7 +68,7 @@ def loadconfig(filename = None):
     data = {}
     with open(filename) as file:
         data = json.load(file)
-    return data 
+    return data
 
 """
 Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
@@ -87,6 +87,49 @@ Default GPIO pins using BCM notation
 """
 gpiogreen = 25
 gpiored = 7
+gpiomanual = 22
+gpiotransfer = 27
+gpioshutdown = 17
+
+"""
+Modes for operation of unit
+"""
+AUTOMATIC = 0
+MANUAL = 1
+TRANSFER = 2
+SHUTDOWN = 3
+
+modenames = ["Automatic", "Manual", "Transfer", "Shutdown"]
+
+"""
+Set up up the mode selection pins
+"""
+def initmodes(config):
+    global gpiomanual, gpiotransfer, gpioshutdown
+
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    gpiomanual = selectpin(config, 'gpiomanual', gpiomanual)
+    gpiotransfer = selectpin(config, 'gpiotransfer', gpiotransfer)
+    gpioshutdown = selectpin(config, 'gpioshutdown', gpioshutdown)
+    GPIO.setup(gpiomanual, GPIO.IN)
+    GPIO.setup(gpiotransfer, GPIO.IN)
+    GPIO.setup(gpioshutdown, GPIO.IN)
+
+"""
+Get current operating mode - defaukts to AUTOMATIC
+"""
+def getcurrentmode():
+    global gpiomanual, gpiotransfer, gpioshutdown, AUTOMATIC, MANUAL, TRANSFER, SHUTDOWN
+    
+    if GPIO.input(gpiomanual) == GPIO.HIGH:
+        return MANUAL
+    if GPIO.input(gpiotransfer) == GPIO.HIGH:
+        return TRANSFER
+    if GPIO.input(gpioshutdown) == GPIO.HIGH:
+        return SHUTDOWN
+    else:
+        return AUTOMATIC
 
 """
 Set up status light, returning current state as 'red', 'green' or 'off'
@@ -139,7 +182,7 @@ def showstatus(color, flashcount = 0):
     else:
         GPIO.output(gpiored, red)
         GPIO.output(gpiogreen, green)
-    
+
 """
 Convert datetime between timezones
 """
@@ -153,11 +196,11 @@ Return sunset and sunrise times in local timezone
 Normally, this function is called after sunset (i.e. when the trap is running), but it
 may be called before sunset (if the trap starts during daylight hours).
 
-The key question is when the NEXT sunrise will occur. (If the trap runs and ends 
-before sunset, this case can still be measured in relation to the coming night (as a 
+The key question is when the NEXT sunrise will occur. (If the trap runs and ends
+before sunset, this case can still be measured in relation to the coming night (as a
 negative offset).
 
-The function therefore gets sunrise for the current date. If this time is prior to the 
+The function therefore gets sunrise for the current date. If this time is prior to the
 current time, the function requests the sunrise time for the subsequent day. Ragardless,
 it then requests the sunset time for the day before the sunrise time.
 
@@ -193,13 +236,13 @@ def getlunarphase():
     index = (pos * dec(8)) + dec("0.5")
     index = math.floor(index)
     return {
-        0: "New Moon", 
-        1: "Waxing Crescent", 
-        2: "First Quarter", 
-        3: "Waxing Gibbous", 
-        4: "Full Moon", 
-        5: "Waning Gibbous", 
-        6: "Last Quarter", 
+        0: "New Moon",
+        1: "Waxing Crescent",
+        2: "First Quarter",
+        3: "Waxing Gibbous",
+        4: "Full Moon",
+        5: "Waning Gibbous",
+        6: "Last Quarter",
         7: "Waning Crescent"
     }[int(index) & 7]
 
@@ -208,5 +251,5 @@ def main():
     print("Sunset: " + sunset.strftime('%Y%m%d-%H%M%S') + " Sunrise: " + sunrise.strftime('%Y%m%d-%H%M%S') + " Moon: " + getlunarphase())
 
 # Run main
-if __name__=="__main__": 
+if __name__=="__main__":
    main()

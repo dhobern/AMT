@@ -59,7 +59,8 @@ import logging
 # Common utility functions
 from amt_util import *
 
-#
+# Current mode
+mode = AUTOMATIC
 
 # Only enable status light if specified in configuration file
 statuslight = False
@@ -81,6 +82,7 @@ originalstatus = "off"
 
 # Store additional metadata in config dictionary
 def addmetadata(config):
+    global mode
     if "latitude" in config and "longitude" in config and config["latitude"] is not None and config["longitude"] is not None:
         sunset, sunrise = getsuntimes(config["latitude"], config["longitude"])
         config["sunset"] = sunset.isoformat()
@@ -88,7 +90,8 @@ def addmetadata(config):
     config["lunarphase"] = getlunarphase()
     config["program"] = " ".join(sys.argv)
     config["version"] = __version__
-    return config 
+    config["currentmode"] = modenames[mode]
+    return config
 
 # Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
 def initgpio(config):
@@ -96,6 +99,10 @@ def initgpio(config):
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
+
+    # Set up the mode pins
+    initmodes(config)
+    logging.info("Current mode is " + ["Automatic", "Manual", "Transfer", "Shutdown"][getcurrentmode()])
 
     # Set up status light and store original color
     originalstatus = initstatus(config)
@@ -109,9 +116,10 @@ def initgpio(config):
         gpiosensordata = selectpin(config, 'gpiosensordata', gpiosensordata)
         # Allow -1 for power pin if attached directly to voltage pin
         gpiosensorpower = selectpin(config, 'gpiosensorpower', gpiosensorpower, True)
+        logging.info("Power pin is " + str(gpiosensorpower))
         if gpiosensorpower > 0:
             GPIO.setup(gpiosensorpower, GPIO.OUT)
-        
+
     gpiolights = selectpin(config, 'gpiolights', gpiolights)
     GPIO.setup(gpiolights, GPIO.OUT)
     logging.info("GPIO pins enabled")
@@ -131,6 +139,7 @@ def enablesensor(activate):
         if activate:
             # Power may be hardwired (gpiosensorpower == -1)
             if gpiosensorpower > 0:
+                logging.info("Enabling sensor power")
                 GPIO.output(gpiosensorpower, GPIO.HIGH)
             pi = pigpio.pi()
             try:
@@ -144,7 +153,7 @@ def enablesensor(activate):
                 pi.stop()
                 pi = None
                 sensor = None
-            
+
         else:
             if sensor is not None:
                 sensor.cancel()
@@ -202,11 +211,16 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 # Main body - initialise, run and clean up
-def main():
+def timelapse():
+    global mode
     # Initalise log
     logging.basicConfig(filename="amt_timelapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
     logging.info("######################")
     logging.info("amt_timelapse.py BEGIN")
+
+    # Check whether manual or automated
+    mode = getcurrentmode()
+    logging.info("Current mode: " + modenames[mode])
 
     # Handle errors gracefully
     signal.signal(signal.SIGINT, signal_handler)
@@ -242,7 +256,7 @@ def main():
     # Loop continues until maximum image count is reached or battery fails
     logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
-    while imagecount != 0:
+    while imagecount != 0 and mode == getcurrentmode():
         if statuslight:
             showstatus("red")
         camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), quality=jpegquality)
@@ -256,9 +270,10 @@ def main():
     # If the loop terminates, power down lights and sensor
     enablelights(False)
     enablesensor(False)
+    camera.close()
     showstatus(originalstatus)
     logging.info("amt_timelapse.py END")
 
 # Run main
-if __name__=="__main__": 
-   main()
+if __name__=="__main__":
+   timelapse()
