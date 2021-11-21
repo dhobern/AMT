@@ -57,8 +57,8 @@ capturesource = '/home/pi/AMT'
 capturetargetname = 'captures'
 unitname = "UNKNOWN"
 
-# Main body - initialise, run and clean up
-def main():
+# Transfer files according to configured requirements
+def transferfiles():
     mainconfig = loadconfig()
     if mainconfig is not None:
         if "unitname" in mainconfig:
@@ -113,4 +113,4 @@ def main():
 
 # Run main
 if __name__=="__main__": 
-   main()
+   transferfiles()
