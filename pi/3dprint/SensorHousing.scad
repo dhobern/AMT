@@ -1,9 +1,9 @@
 fudge = 0.1;
 fudge2 = fudge * 2;
 
-length = 50;
-width = 35;
-height = 27;
+length = 70;
+width = 50;
+height = 37;
 
 toothheight = 3;
 toothwidth = 3;
@@ -16,9 +16,9 @@ plate = 3;
 fillet = 4;
 
 diam = 8;
-spikediam = 2.9;
-spikelength = 6;
-spikespacing = 2.1;
+spikediam = 2.5;
+spikelength = 12;
+spikespacing = 4;
 
 translate([width, 0, 0]) {
     difference() {
@@ -49,7 +49,13 @@ translate([width, 0, 0]) {
             }
             
             translate([wall + fudge, plate - fudge, plate * 2 - fudge]) {
-                cube([width - 2 * wall + fudge2, length - 3 * plate - diam + fudge, height - wall - 10]);
+                cube([width - 2 * wall + fudge2, length - 3 * plate - diam + fudge, height - wall - 20]);
+            }
+            
+            for (i = [-5, 4]) {
+                translate([width/2 + i, plate - fudge, plate * 2 - fudge]) {
+                    cube([1, length - 3 * plate - diam + fudge, height - wall - 17]);
+                }
             }
 
             translate([width / 2, plate + spikediam / 2 + spikespacing, 2 * plate - fudge]) {
