@@ -69,11 +69,6 @@ statuslight = False
 sensortype = None
 sensor = None
 
-# GPIO pins - these may be varied within the configuration file - all use BCM notation
-gpiolights = 26
-gpiosensorpower = 10
-gpiosensordata = 9
-
 # Object in pigpio to represent board
 pi = None
 
@@ -90,22 +85,18 @@ def addmetadata(config):
     config["lunarphase"] = getlunarphase()
     config["program"] = " ".join(sys.argv)
     config["version"] = __version__
-    config["currentmode"] = modenames[mode]
+    config["trigger"] = modenames[mode]
     return config
 
 # Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
-def initgpio(config):
+def initoperation(config):
     global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata, originalstatus
 
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-
     # Set up the mode pins
-    initmodes(config)
-    logging.info("Current mode is " + ["Automatic", "Manual", "Transfer", "Shutdown"][getcurrentmode()])
+    initboard(config)
 
     # Set up status light and store original color
-    originalstatus = initstatus(config)
+    originalstatus = initstatus()
 
     if 'statuslight' in config and config['statuslight']:
         statuslight = True
@@ -113,23 +104,6 @@ def initgpio(config):
 
     if 'sensortype' in config and config['sensortype'] in ["DHT22", "DHT11"]:
         sensortype = config['sensortype']
-        gpiosensordata = selectpin(config, 'gpiosensordata', gpiosensordata)
-        # Allow -1 for power pin if attached directly to voltage pin
-        gpiosensorpower = selectpin(config, 'gpiosensorpower', gpiosensorpower, True)
-        logging.info("Power pin is " + str(gpiosensorpower))
-        if gpiosensorpower > 0:
-            GPIO.setup(gpiosensorpower, GPIO.OUT)
-
-    gpiolights = selectpin(config, 'gpiolights', gpiolights)
-    GPIO.setup(gpiolights, GPIO.OUT)
-    logging.info("GPIO pins enabled")
-
-# Turn lights on or off
-def enablelights(activate):
-    global gpiolights
-
-    GPIO.output(gpiolights, GPIO.HIGH if activate else GPIO.LOW)
-    logging.info("Lights enabled" if activate else "Lights disabled")
 
 # Turn sensor sensor on or off if enabled
 def enablesensor(activate):
@@ -213,14 +187,12 @@ def signal_handler(sig, frame):
 # Main body - initialise, run and clean up
 def timelapse():
     global mode
-    # Initalise log
-    logging.basicConfig(filename="amt_timelapse.log", format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+
+    if __name__ == "__main__":
+        initlog("amt_timelapse.log")
+
     logging.info("######################")
     logging.info("amt_timelapse.py BEGIN")
-
-    # Check whether manual or automated
-    mode = getcurrentmode()
-    logging.info("Current mode: " + modenames[mode])
 
     # Handle errors gracefully
     signal.signal(signal.SIGINT, signal_handler)
@@ -234,13 +206,16 @@ def timelapse():
 
     # Initialise from config settings
     config = loadconfig(configfilename)
-    addmetadata(config)
     labeltext = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
     interval = config['interval']
     imagecount = config['maximages']
     jpegquality = config['quality']
+    logging.info("Quality: " + str(jpegquality))
+    # Check whether manual or automated
+    mode = getcurrentmode()
+    addmetadata(config)
     foldername = initfolder(config)
-    initgpio(config)
+    initoperation(config)
     enablelights(True)
     if sensortype is not None:
         enablesensor(True)
@@ -249,23 +224,38 @@ def timelapse():
     # If specified, wait before imaging
     if config['initialdelay'] is not None:
         logging.info("Initial delay: " + str(config['initialdelay']) + " seconds")
-        time.sleep(config['initialdelay'])
+        if mode == MANUAL:
+            for i in range(config['initialdelay']):
+                time.sleep(1)
+                if getcurrentmode() != MANUAL:
+                    logging.info("Mode change - aborting timelapse")
+                    break
+        else:
+            time.sleep(config['initialdelay'])
 
-    camera = initcamera(config)
+    if mode == getcurrentmode():
+        camera = initcamera(config)
+        if True:
+            for i in range(10, 100, 10):
+                camera.capture(os.path.join(foldername, "qualitycheck-" + str(i) + '.jpg'), format = "jpeg", quality = i)
 
-    # Loop continues until maximum image count is reached or battery fails
-    logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
-    while imagecount != 0 and mode == getcurrentmode():
-        if statuslight:
-            showstatus("red")
-        camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), quality=jpegquality)
-        if statuslight:
-            showstatus("green")
-        time.sleep(interval)
-        imagecount -= 1
+        # Loop continues until maximum image count is reached or battery fails
+        if mode == AUTOMATIC:
+            logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
+        else: 
+            logging.info("Time series of images at " + str(interval) + " second intervals")
 
-    logging.info("Time series complete")
+        while (mode == AUTOMATIC and imagecount != 0) or (mode == MANUAL and getcurrentmode() == MANUAL):
+            if statuslight:
+                showstatus("red")
+            camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), format = "jpeg", quality = jpegquality)
+            if statuslight:
+                showstatus("green")
+            time.sleep(interval)
+            imagecount -= 1
+
+        logging.info("Time series complete")
 
     # If the loop terminates, power down lights and sensor
     enablelights(False)

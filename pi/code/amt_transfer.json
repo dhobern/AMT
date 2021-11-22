@@ -1,6 +1,6 @@
 {
    "exportimages": true,
    "deleteonexport": false,
-   "importconfiguration": false,
-   "statuslight": false
+   "importconfiguration": true,
+   "statuslight": true
 }

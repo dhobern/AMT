@@ -76,7 +76,7 @@ def transferfiles():
 
     if xferconfig is None:
         print("No config file")
-        exit(0)
+        return(1)
 
     if 'exportimages' in xferconfig and xferconfig['exportimages']:
         print("Exporting images")

@@ -30,6 +30,7 @@ import math
 import decimal
 import json
 import time
+import logging
 
 """
 Load configuration from a JSON file, with the following elements:
@@ -90,6 +91,10 @@ gpiored = 7
 gpiomanual = 22
 gpiotransfer = 27
 gpioshutdown = 17
+gpiolights = 26
+gpiosensorpower = 10
+gpiosensordata = 9
+gpiotrigger = 15
 
 """
 Modes for operation of unit
@@ -102,22 +107,38 @@ SHUTDOWN = 3
 modenames = ["Automatic", "Manual", "Transfer", "Shutdown"]
 
 """
-Set up up the mode selection pins
+Set up up the pins
 """
-def initmodes(config):
-    global gpiomanual, gpiotransfer, gpioshutdown
+def initboard(config):
+    global gpiogreen, gpiored, gpiomanual, gpiotransfer, gpioshutdown, gpiolights, gpiosensordata, gpiosensorpower, gpiotrigger
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
     gpiomanual = selectpin(config, 'gpiomanual', gpiomanual)
     gpiotransfer = selectpin(config, 'gpiotransfer', gpiotransfer)
     gpioshutdown = selectpin(config, 'gpioshutdown', gpioshutdown)
-    GPIO.setup(gpiomanual, GPIO.IN)
-    GPIO.setup(gpiotransfer, GPIO.IN)
-    GPIO.setup(gpioshutdown, GPIO.IN)
+    gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
+    gpiored = selectpin(config, 'gpiored', gpiored)
+    gpiolights = selectpin(config, 'gpiolights', gpiolights)
+    gpiosensordata = selectpin(config, 'gpiosensordata', gpiosensordata)
+    gpiotrigger = selectpin(config, 'gpiotrigger', gpiotrigger)
+    # Allow -1 for power pin if attached directly to voltage pin
+    gpiosensorpower = selectpin(config, 'gpiosensorpower', gpiosensorpower, True)
+    GPIO.setup(gpiomanual, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    GPIO.setup(gpiotransfer, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    GPIO.setup(gpioshutdown, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    GPIO.setup(gpiogreen, GPIO.OUT)
+    GPIO.setup(gpiored, GPIO.OUT)
+    if gpiosensorpower > 0:
+        logging.info("Power pin is " + str(gpiosensorpower))
+        GPIO.setup(gpiosensorpower, GPIO.OUT)
+    GPIO.setup(gpiolights, GPIO.OUT)
+    GPIO.setup(gpiotrigger, GPIO.IN)
+    logging.info("GPIO pins enabled")
+
 
 """
-Get current operating mode - defaukts to AUTOMATIC
+Get current operating mode - defaults to AUTOMATIC
 """
 def getcurrentmode():
     global gpiomanual, gpiotransfer, gpioshutdown, AUTOMATIC, MANUAL, TRANSFER, SHUTDOWN
@@ -132,17 +153,20 @@ def getcurrentmode():
         return AUTOMATIC
 
 """
+Turn lights on or off
+"""
+def enablelights(activate):
+    global gpiolights
+
+    GPIO.output(gpiolights, GPIO.HIGH if activate else GPIO.LOW)
+    logging.info("Lights enabled" if activate else "Lights disabled")
+
+"""
 Set up status light, returning current state as 'red', 'green' or 'off'
 """
-def initstatus(config):
-    global gpiogreen, gpiored
+def initstatus():
+    global gpiogreen, gpiored, originalgreen, originalred
 
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-    gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
-    gpiored = selectpin(config, 'gpiored', gpiored)
-    GPIO.setup(gpiogreen, GPIO.OUT)
-    GPIO.setup(gpiored, GPIO.OUT)
     originalgreen = GPIO.input(gpiogreen)
     originalred = GPIO.input(gpiored)
 
@@ -151,7 +175,7 @@ def initstatus(config):
 """
 Set status light color or flash status light in specified color
 """
-def showstatus(color, flashcount = 0):
+def showstatus(color, flashcount = 0, flashlength = 0.2):
     global gpiogreen, gpiored
 
     red = GPIO.HIGH if color == 'red' else GPIO.LOW
@@ -170,10 +194,10 @@ def showstatus(color, flashcount = 0):
         while flashcount > 0:
             GPIO.output(gpiored, red)
             GPIO.output(gpiogreen, green)
-            time.sleep(1)
+            time.sleep(flashlength)
             GPIO.output(gpiored, GPIO.LOW)
             GPIO.output(gpiogreen, GPIO.LOW)
-            time.sleep(1)
+            time.sleep(flashlength)
             flashcount -= 1
 
         # Reset colour
@@ -245,6 +269,13 @@ def getlunarphase():
         6: "Last Quarter",
         7: "Waning Crescent"
     }[int(index) & 7]
+
+"""
+Initialize logging
+"""
+def initlog(name):
+    logging.basicConfig(filename=name, format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+
 
 def main():
     sunset, sunrise = getsuntimes(-35.264, 149.084)
