@@ -34,6 +34,7 @@ else:
 initboard(config)
 originalstatus = initstatus()
 showstatus('green', 3)
+enablelights(False)
 
 listening = True
 while listening:
