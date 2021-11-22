@@ -257,10 +257,11 @@ def timelapse():
 
         logging.info("Time series complete")
 
+        camera.close()
+
     # If the loop terminates, power down lights and sensor
     enablelights(False)
     enablesensor(False)
-    camera.close()
     showstatus(originalstatus)
     logging.info("amt_timelapse.py END")
 

@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 initlog("/home/pi/amt_modeselector.log")
 logging.info("##########################")
-logging.info("amt_modeselector.log BEGIN")
+logging.info("amt_modeselector.py BEGIN")
 
 # Optionally override default configuration file
 if len(sys.argv) > 1:
