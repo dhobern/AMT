@@ -133,7 +133,7 @@ def initboard(config):
         logging.info("Power pin is " + str(gpiosensorpower))
         GPIO.setup(gpiosensorpower, GPIO.OUT)
     GPIO.setup(gpiolights, GPIO.OUT)
-    GPIO.setup(gpiotrigger, GPIO.IN)
+    GPIO.setup(gpiotrigger, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     logging.info("GPIO pins enabled")
 
 
