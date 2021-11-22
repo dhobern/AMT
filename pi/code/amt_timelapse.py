@@ -211,11 +211,16 @@ def timelapse():
     imagecount = config['maximages']
     jpegquality = config['quality']
     logging.info("Quality: " + str(jpegquality))
+    initoperation(config)
     # Check whether manual or automated
     mode = getcurrentmode()
+    # If mode is manual, the system should already be running. If this is a main execution, the script has been triggered by cron or from a shell - do not operate while manual is set.
+    if __name__ == "__main__" and mode == MANUAL:
+        logging.info("Main execution while Manual selected - terminate immediately")
+        exit(0)
+
     addmetadata(config)
     foldername = initfolder(config)
-    initoperation(config)
     enablelights(True)
     if sensortype is not None:
         enablesensor(True)
