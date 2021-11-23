@@ -12,7 +12,7 @@ Configuration is provided via a JSON file, with the following elements:
  - operatingdistance: Purely to document the operating distance of the camera from the illuminated surface, in mm
  - mothlight: Purely to document for future users (e.g. "High-power LED tube: 4 UV, 1 green, 1 blue")
  - illumination: Purely to document for future users (e.g. "10-inch ring light")
- - mode: The operating model, currently only "TimeLapse" is supported
+ - mode: The operating mode, currently only "TimeLapse" is supported
  - imagewidth: Image width for camera resolution in pixels
  - imageheight: Image height for camera resolution in pixels
  - brightness: Image brightness for camera (0-100, PiCamera default is 50)
@@ -60,7 +60,7 @@ import logging
 from amt_util import *
 
 # Current mode
-mode = AUTOMATIC
+manual = False
 
 # Only enable status light if specified in configuration file
 statuslight = False
@@ -75,9 +75,13 @@ pi = None
 # To remember state of status light before execution
 originalstatus = "off"
 
+# Check whether specified manual setting (still) matches the user selection
+def modestillvalid(manual):
+    return (manual == (getcurrentmode() == MANUAL))
+
 # Store additional metadata in config dictionary
 def addmetadata(config):
-    global mode
+    global manual
     if "latitude" in config and "longitude" in config and config["latitude"] is not None and config["longitude"] is not None:
         sunset, sunrise = getsuntimes(config["latitude"], config["longitude"])
         config["sunset"] = sunset.isoformat()
@@ -85,7 +89,7 @@ def addmetadata(config):
     config["lunarphase"] = getlunarphase()
     config["program"] = " ".join(sys.argv)
     config["version"] = __version__
-    config["trigger"] = modenames[mode]
+    config["trigger"] = "Manual" if manual else "Automatic"
     return config
 
 # Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
@@ -185,10 +189,12 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 # Main body - initialise, run and clean up
-def timelapse():
-    global mode
+def timelapse(manuallytriggered = False):
+    global manual
+    manual = manuallytriggered
 
-    if __name__ == "__main__":
+    # If triggered as manual, leave logging to the calling module
+    if not manual:
         initlog("amt_timelapse.log")
 
     logging.info("######################")
@@ -212,11 +218,10 @@ def timelapse():
     jpegquality = config['quality']
     logging.info("Quality: " + str(jpegquality))
     initoperation(config)
-    # Check whether manual or automated
-    mode = getcurrentmode()
+
     # If mode is manual, the system should already be running. If this is a main execution, the script has been triggered by cron or from a shell - do not operate while manual is set.
-    if __name__ == "__main__" and mode == MANUAL:
-        logging.info("Main execution while Manual selected - terminate immediately")
+    if not modestillvalid(manual):
+        logging.info("Execution mode does not match current user setting - terminate immediately")
         exit(0)
 
     addmetadata(config)
@@ -229,29 +234,25 @@ def timelapse():
     # If specified, wait before imaging
     if config['initialdelay'] is not None:
         logging.info("Initial delay: " + str(config['initialdelay']) + " seconds")
-        if mode == MANUAL:
+        if modestillvalid(manual):
             for i in range(config['initialdelay']):
                 time.sleep(1)
-                if getcurrentmode() != MANUAL:
+                if not modestillvalid(manual):
                     logging.info("Mode change - aborting timelapse")
                     break
         else:
             time.sleep(config['initialdelay'])
 
-    if mode == getcurrentmode():
+    if modestillvalid(manual):
         camera = initcamera(config)
-        if True:
-            for i in range(10, 100, 10):
-                camera.capture(os.path.join(foldername, "qualitycheck-" + str(i) + '.jpg'), format = "jpeg", quality = i)
-
 
         # Loop continues until maximum image count is reached or battery fails
-        if mode == AUTOMATIC:
-            logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
-        else: 
+        if manual:
             logging.info("Time series of images at " + str(interval) + " second intervals")
+        else: 
+            logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
-        while (mode == AUTOMATIC and imagecount != 0) or (mode == MANUAL and getcurrentmode() == MANUAL):
+        while modestillvalid(manual) and (manual or (not manual and imagecount > 0)):
             if statuslight:
                 showstatus("red")
             camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), format = "jpeg", quality = jpegquality)
@@ -261,6 +262,9 @@ def timelapse():
             imagecount -= 1
 
         logging.info("Time series complete")
+
+        if 'calibration' in config:
+            calibratecamera(camera, config['calibration'].split(','), os.path.join(foldername, "calibration"), config)
 
         camera.close()
 

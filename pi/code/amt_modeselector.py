@@ -50,10 +50,16 @@ while listening:
         showstatus('green', 1, 1.5)
     elif mode == MANUAL:
         showstatus('green', 2)
-        timelapse()
+        try:
+            timelapse(True)
+        except:
+            logging.info("Caught exception")
     elif mode == TRANSFER:
         showstatus('red')
-        transferfiles()
+        try:
+            transferfiles()
+        except:
+            logging.info("Caught exception")
         showstatus(originalstatus)
     elif mode == SHUTDOWN:
         showstatus('red', 3)

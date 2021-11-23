@@ -17,7 +17,7 @@ __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
 __license__ = "CC-BY-4.0"
-__version__ = "0.9.1"
+__version__ = "0.9.3"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"
 __status__ = "Production"
@@ -31,6 +31,7 @@ import decimal
 import json
 import time
 import logging
+import os
 
 """
 Load configuration from a JSON file, with the following elements:
@@ -48,7 +49,7 @@ Load configuration from a JSON file, with the following elements:
  - contrast: Image contrast for camera (-100-100, PiCamera default is 0)
  - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
  - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
- - quality: Image quality for camera (0-100, PiCamera default is 85)
+ - quality: Image quality for camera (1-100, PiCamera default is 85)
  - interval: Time lapse interval in seconds
  - initialdelay: Delay in seconds between enabling lights and DHT22 sensor before capturing images
  - maximages: Maximum number of images to collect (-1 for unlimited)
@@ -181,10 +182,11 @@ def showstatus(color, flashcount = 0, flashlength = 0.2):
     red = GPIO.HIGH if color == 'red' else GPIO.LOW
     green = GPIO.HIGH if color == 'green' else GPIO.LOW
 
+    # Remember current setting
+    currentred = GPIO.input(gpiored)
+    currentgreen = GPIO.input(gpiogreen)
+
     if flashcount > 0:
-        # Remember current setting
-        currentred = GPIO.input(gpiored)
-        currentgreen = GPIO.input(gpiogreen)
 
         # Ensure that the first flash is distinct
         if red == currentred and green == currentgreen and color != "off":
@@ -206,6 +208,8 @@ def showstatus(color, flashcount = 0, flashlength = 0.2):
     else:
         GPIO.output(gpiored, red)
         GPIO.output(gpiogreen, green)
+
+    return 'red' if currentred > currentgreen else 'green' if currentgreen > currentred else 'off'
 
 """
 Convert datetime between timezones
@@ -276,6 +280,48 @@ Initialize logging
 def initlog(name):
     logging.basicConfig(filename=name, format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
 
+"""
+Take series of calibration images
+"""
+def calibratecamera(camera, series, calibrationfolder, config):
+    logging.info("Generating calibration images in " + calibrationfolder)
+    currentcolor = showstatus('green')
+
+    if not os.path.isdir(calibrationfolder):
+        os.mkdir(calibrationfolder)
+
+    defaultquality = config['quality'] if 'quality' in config else 85
+    for choice in series:
+        if choice == 'quality':
+            for i in range(10, 100, 10):
+                camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = i)
+                showstatus('red', 1, 0.05)
+        elif choice == 'brightness':
+            for i in range(0, 101, 10):
+                camera.brightness = i
+                camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
+                showstatus('red', 1, 0.05)
+            camera.brightness = config['brightness'] if 'brightness' in config else 50
+        elif choice == 'sharpness':
+            for i in range(-100, 101, 10):
+                camera.sharpness = i
+                camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
+                showstatus('red', 1, 0.05)
+            camera.sharpness = config['sharpness'] if 'sharpness' in config else 0
+        elif choice == 'contrast':
+            for i in range(-100, 101, 10):
+                camera.contrast = i
+                camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
+                showstatus('red', 1, 0.05)
+            camera.contrast = config['contrast'] if 'contrast' in config else 0
+        elif choice == 'saturation':
+            for i in range(-100, 101, 10):
+                camera.saturation = i
+                camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
+                showstatus('red', 1, 0.05)
+            camera.saturation = config['saturation'] if 'saturation' in config else 0
+    logging.info("Calibration images complete")
+    showstatus(currentcolor)
 
 def main():
     sunset, sunrise = getsuntimes(-35.264, 149.084)
