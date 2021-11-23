@@ -111,6 +111,7 @@ def transferfiles():
                         #errors.extend(err.args[0])
                         logging.error("Error removing files " + str(err.args[0]))
                         break
+        subprocess.call(['sudo', 'umount', '/media/usb'], shell=False)
 
 
 # Run main
