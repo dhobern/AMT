@@ -263,7 +263,7 @@ def timelapse(manuallytriggered = False):
 
         logging.info("Time series complete")
 
-        if 'calibration' in config:
+        if 'calibration' in config and config['calibration'] is not None:
             calibratecamera(camera, config['calibration'].split(','), os.path.join(foldername, "calibration"), config)
 
         camera.close()

@@ -56,11 +56,16 @@ Load configuration from a JSON file, with the following elements:
  - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
  - statuslight: Specify whether to use red/green status light (true/false, defaults to false)
  - sensortype: Specify whether to use DHT11/DHT22 temperature/humidity sensor (one of "DHT22", "DHT11", "None")
- - gpiogreen = Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
- - gpiored = Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
- - gpiolights = Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
- - gpiosensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
- - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
+ - gpiogreen: Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
+ - gpiored: Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
+ - gpiolights: Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
+ - gpiosensorpower: Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
+ - gpiosensordata: Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
+ - gpiomanual: Raspberry Pi GPIO pin for indicating manual mode operation (default 22)
+ - gpiotransfer: Raspberry Pi GPIO pin for indicating transfer mode operation (default 27)
+ - gpioshutdown: Raspberry Pi GPIO pin for indicating shutdown mode operation (default 17)
+ - gpiotrigger: Raspberry Pi GPIO pin to receive signal to initiate modes (default 15)
+ - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast and saturation (default "")
 
 The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter.
 """
@@ -281,7 +286,7 @@ def initlog(name):
     logging.basicConfig(filename=name, format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
 
 """
-Take series of calibration images
+Take series of calibration images for up to five different image aspects
 """
 def calibratecamera(camera, series, calibrationfolder, config):
     logging.info("Generating calibration images in " + calibrationfolder)
@@ -322,11 +327,3 @@ def calibratecamera(camera, series, calibrationfolder, config):
             camera.saturation = config['saturation'] if 'saturation' in config else 0
     logging.info("Calibration images complete")
     showstatus(currentcolor)
-
-def main():
-    sunset, sunrise = getsuntimes(-35.264, 149.084)
-    print("Sunset: " + sunset.strftime('%Y%m%d-%H%M%S') + " Sunrise: " + sunrise.strftime('%Y%m%d-%H%M%S') + " Moon: " + getlunarphase())
-
-# Run main
-if __name__=="__main__":
-   main()

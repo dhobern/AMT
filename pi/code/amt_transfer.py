@@ -41,7 +41,7 @@ __status__ = "Production"
 
 import time
 from datetime import datetime
-from shutil import copyfile, copytree, rmtree, Error
+import subprocess
 import os
 import RPi.GPIO as GPIO
 import sys
@@ -59,7 +59,7 @@ unitname = "UNKNOWN"
 
 # Transfer files according to configured requirements
 def transferfiles():
-    mainconfig = loadconfig()
+    mainconfig = loadconfig('/home/pi/amt_config.json')
     if mainconfig is not None:
         if "unitname" in mainconfig:
             unitname = mainconfig['unitname']
@@ -67,19 +67,21 @@ def transferfiles():
             capturesource = mainconfig['folder']
     xferconfig = None
     amtfolder = os.path.join(basefolder, "AMT")
+    if not os.path.exists(amtfolder):
+        os.mkdir(amtfolder)
     if os.path.isdir(amtfolder):
         xferconfigname = os.path.join(amtfolder, "amt_transfer.json")
-        if os.path.isfile(xferconfigname):
+        if os.path.exists(xferconfigname) and os.path.isfile(xferconfigname):
             xferconfig = loadconfig(xferconfigname)
-            print("Loaded config file")
+            logging.info("Loaded config file")
             print(str(xferconfig))
 
     if xferconfig is None:
-        print("No config file")
-        return(1)
+        xferconfig = {}
+        xferconfig['exportimages'] = True
 
     if 'exportimages' in xferconfig and xferconfig['exportimages']:
-        print("Exporting images")
+        logging.info("Exporting images")
         capturesfolder = os.path.join(amtfolder, capturetargetname)
         if not os.path.isdir(capturesfolder):
             os.mkdir(capturesfolder)
@@ -87,30 +89,31 @@ def transferfiles():
         if not os.path.isdir(capturedestination):
             os.mkdir(capturedestination)
         success = True
-        print("Copying from " + capturesource + " to " + capturedestination)
+        logging.info("Copying from " + capturesource + " to " + capturedestination)
         if os.path.isdir(capturesource):
             for c in os.listdir(capturesource):
                 try:
                     capturesubfolder = os.path.join(capturesource, c)
                     destinationsubfolder = os.path.join(capturedestination, c)
-                    copytree(capturesubfolder, destinationsubfolder)
+                    subprocess.call(['cp', '-fr',  capturesubfolder, destinationsubfolder], shell=False)
                 except Error as err:
                     #errors.extend(err.args[0])
-                    print("Error copying files " + str(err.args[0]))
+                    logging.error("Error copying files " + str(err.args[0]))
                     success = False
-                    print("Copy of " + capturesubfolder + " failed")
-                print("Copied " + capturesubfolder)
+                    logging.error("Copy of " + capturesubfolder + " failed")
+                logging.info("Copied " + capturesubfolder)
             if success and 'deleteonexport' in xferconfig and xferconfig['deleteonexport']:
                 for c in os.listdir(capturesource):
                     try:
                         capturesubfolder = os.path.join(capturesource, c)
-                        rmtree(capturesubfolder)
+                        subprocess.call(['rm', '-fr', capturesource], shell=False)
                     except Error as err:
                         #errors.extend(err.args[0])
-                        print("Error removing files " + str(err.args[0]))
+                        logging.error("Error removing files " + str(err.args[0]))
                         break
 
 
 # Run main
 if __name__=="__main__": 
-   transferfiles()
+    initlog("/home/pi/amt_transfer.log")
+    transferfiles()

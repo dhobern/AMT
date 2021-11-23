@@ -52,14 +52,16 @@ while listening:
         showstatus('green', 2)
         try:
             timelapse(True)
-        except:
-            logging.info("Caught exception")
+        except Exception as exc:
+            logging.error("Caught exception")
+            logging.error(exc)
     elif mode == TRANSFER:
         showstatus('red')
         try:
             transferfiles()
-        except:
-            logging.info("Caught exception")
+        except Exception as exc:
+            logging.error("Caught exception")
+            logging.error(exc)
         showstatus(originalstatus)
     elif mode == SHUTDOWN:
         showstatus('red', 3)
@@ -69,4 +71,4 @@ while listening:
         enablelights(False)
         showstatus('off')
 
-        subprocess.call(['shutdown', '-h', 'now'], shell=False)
+        subprocess.call(['sudo', 'shutdown', '-h', 'now'], shell=False)
