@@ -32,6 +32,7 @@ import json
 import time
 import logging
 import os
+from picamera import PiCamera
 
 """
 Load configuration from a JSON file, with the following elements:
@@ -50,6 +51,7 @@ Load configuration from a JSON file, with the following elements:
  - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
  - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
  - quality: Image quality for camera (1-100, PiCamera default is 85)
+ - awbmode: Automated white balance setting for camera (one of 'off', 'auto', 'sunlight', 'cloudy', 'shade', 'tungsten', 'fluorescent', 'incandescent', 'flash', 'horizon', PiCamera default is 'auto')
  - interval: Time lapse interval in seconds
  - initialdelay: Delay in seconds between enabling lights and DHT22 sensor before capturing images
  - maximages: Maximum number of images to collect (-1 for unlimited)
@@ -65,7 +67,7 @@ Load configuration from a JSON file, with the following elements:
  - gpiotransfer: Raspberry Pi GPIO pin for indicating transfer mode operation (default 27)
  - gpioshutdown: Raspberry Pi GPIO pin for indicating shutdown mode operation (default 17)
  - gpiotrigger: Raspberry Pi GPIO pin to receive signal to initiate modes (default 15)
- - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast and saturation (default "")
+ - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast, saturation and awbmode (default "")
 
 The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter.
 """
@@ -325,5 +327,11 @@ def calibratecamera(camera, series, calibrationfolder, config):
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
             camera.saturation = config['saturation'] if 'saturation' in config else 0
+        elif choice == 'awbmode':
+            for i in PiCamera.AWB_MODES:
+                camera.awb_mode = i
+                camera.capture(os.path.join(calibrationfolder, choice + "_" + i + '.jpg'), format = "jpeg", quality = defaultquality)
+                showstatus('red', 1, 0.05)
+            camera.awb_mode = config['awbmode'] if 'awbmode' in config else 'auto'
     logging.info("Calibration images complete")
     showstatus(currentcolor)
