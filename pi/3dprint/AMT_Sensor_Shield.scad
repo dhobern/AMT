@@ -1,48 +1,81 @@
-/* 
- * Weather shield for temperature/humidity sensor DHT22
- *
- * This design produces a shield to protect a DHT22 sensor. See
- * https://amt.hobern.net/ for more detail.
- *
- * Author: Donald Hobern
- * Copyright: Copyright 2021, Donald Hobern
- * License: CC0
- * Version: 1.0.0
- * Email: dhobern@gmail.com
- */
+outerdiam = 70;
+innerdiam = 50;
+height = 20;
+nesting = 5;
+rod = 10;
+thickness = 2;
+totalheight = 100;
+cable = 5;
+sensorx = 8;
+sensory = 20;
+screw = 3.5
+screwinset = 6.5;
 
-outerdiameter = 80;
-innerdiameter = 60;
-height = 40;
-
-sensorheight = 45;
-
-roddiam = 10;
-
-cablediam = 6;
-
-// To adjust design and ensure that the design is at least mostly manifold.
 fudge = 0.1;
 fudge2 = 0.2;
-
+fudge3 = 0.3;
 $fn = 360;
 
-rotate([90, 0, 0]) {
-    difference() {
-        // main block
-        union() {
-            cube([length, width, outerthickness]);
-            translate([(length - centrelength) / 2, 0, 0]) {
-                cube([centrelength, width, bardepth + 3 * thickness + clearance]);
+translate([outerdiam + thickness, outerdiam + thickness, 0]) {
+    union() {
+        difference() {
+            cylinder(d1 = innerdiam, d2 = outerdiam, h = height);
+            translate([0, 0, thickness + fudge]) {
+                cylinder(d1 = innerdiam - 2 * thickness, d2 = outerdiam - 2 * thickness, h = height - thickness);
             }
         }
-        translate([(length - barwidth) / 2, -fudge, 2 * thickness + clearance]) {
-            cube([barwidth, width + fudge2, bardepth]);
+        difference() {
+            union() {
+                cylinder(d = rod + 2 * thickness - fudge2, h = totalheight);
+                cylinder(d = rod + 4 * thickness, h = height - nesting);
+            }
+            translate([0, 0, thickness]) {
+                cylinder(d = rod, h = totalheight);
+            }
         }
-        for (i = [(length - centrelength) / 4, length - (length - centrelength) / 4]) {
-            for(j = [width * 0.25, width * 0.75]) {
-                translate([i, j, -fudge]) {
-                    cylinder(d = screwdiam, h = outerthickness + fudge2);
+    }
+}
+
+translate([0, outerdiam + thickness, 0]) {
+    difference() {
+        union() {
+            difference() {
+                cylinder(d1 = innerdiam, d2 = outerdiam, h = height);
+                translate([0, 0, thickness + fudge]) {
+                    cylinder(d1 = innerdiam - 2 * thickness, d2 = outerdiam - 2 * thickness, h = height - thickness);
+                }
+            }
+            cylinder(d = rod + 4 * thickness, h = height - nesting);
+        }
+        translate([0, 0, -fudge]) {
+            cylinder(d = rod + 2 * thickness + fudge2, h = height);
+        }
+    }
+}
+
+for (i = [0, outerdiam + thickness]) {
+    translate([i, 0, 0]) {
+        difference() {
+            union() {
+                difference() {
+                    cylinder(d1 = innerdiam, d2 = outerdiam, h = height);
+                    translate([0, 0, thickness + fudge]) {
+                        cylinder(d1 = innerdiam - 2 * thickness, d2 = outerdiam - 2 * thickness, h = height - thickness);
+                    }
+                }
+                cylinder(d = rod + 4 * thickness, h = height - nesting);
+            }
+            translate([0, 0, -fudge]) {
+                cylinder(d = rod + 2 * thickness + fudge2, h = height);
+            }
+            for (j = [innerdiam / 4, -innerdiam / 4]) {
+                translate([0, j, -fudge]) {
+                    cylinder(d = cable, h = thickness + fudge3);
+                }
+            }
+            for (j = [rod / 2 + 2 * thickness + fudge, -(rod /2 + 2 * thickness + fudge)  - sensorx]) {
+                translate([j, -sensory / 2, -fudge]) {
+                    cube([sensorx, sensory, thickness + fudge3]);
                 }
             }
         }

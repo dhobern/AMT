@@ -18,14 +18,13 @@ width = 25;
 // Slightly looser than for the tightly clamped fittings
 barwidth = 25.4;
 bardepth = 3.4;
-barmargin = 5;
-thickness = 3;
+thickness = 6;
 outerthickness = 8;
 screwdiam = 2.8;
+bevel = 2;
+slotx = (length - barwidth) / 2;
 
-clearance = 2;
-
-centrelength = barwidth + 2 * barmargin;
+centrelength = barwidth + 2 * thickness;
 
 // To adjust design and ensure that the design is at least mostly manifold.
 fudge = 0.1;
@@ -39,10 +38,10 @@ rotate([90, 0, 0]) {
         union() {
             cube([length, width, outerthickness]);
             translate([(length - centrelength) / 2, 0, 0]) {
-                cube([centrelength, width, bardepth + 3 * thickness + clearance]);
+                cube([centrelength, width, outerthickness + bardepth + thickness]);
             }
         }
-        translate([(length - barwidth) / 2, -fudge, 2 * thickness + clearance]) {
+        translate([slotx, -fudge, outerthickness]) {
             cube([barwidth, width + fudge2, bardepth]);
         }
         for (i = [(length - centrelength) / 4, length - (length - centrelength) / 4]) {
@@ -52,5 +51,28 @@ rotate([90, 0, 0]) {
                 }
             }
         }
+        polyhedron(points = [[slotx - bevel, -fudge, outerthickness - bevel], 
+                             [length - slotx + bevel, -fudge, outerthickness - bevel],
+                             [length - slotx + bevel, -fudge, outerthickness + bardepth + bevel],
+                             [slotx - bevel, -fudge, outerthickness + bardepth + bevel],
+                             [slotx, bevel - fudge, outerthickness], 
+                             [length - slotx, bevel - fudge, outerthickness],
+                             [length - slotx, bevel - fudge, outerthickness + bardepth],
+                             [slotx, bevel - fudge, outerthickness + bardepth]],
+                   faces = [[0,1,2,3],[4,5,1,0],[7,6,5,4],[5,6,2,1],[6,7,3,2],[7,4,0,3]],  
+                   convexity = 15);
+        translate([length, width, 0]) rotate([ 0, 0, 180]) {
+            polyhedron(points = [[slotx - bevel, -fudge, outerthickness - bevel], 
+                                 [length - slotx + bevel, -fudge, outerthickness - bevel],
+                                 [length - slotx + bevel, -fudge, outerthickness + bardepth + bevel],
+                                 [slotx - bevel, -fudge, outerthickness + bardepth + bevel],
+                                 [slotx, bevel - fudge, outerthickness], 
+                                 [length - slotx, bevel - fudge, outerthickness],
+                                 [length - slotx, bevel - fudge, outerthickness + bardepth],
+                                 [slotx, bevel - fudge, outerthickness + bardepth]],
+                       faces = [[0,1,2,3],[4,5,1,0],[7,6,5,4],[5,6,2,1],[6,7,3,2],[7,4,0,3]],  
+                       convexity = 15);
+        }
     }
+    
 }

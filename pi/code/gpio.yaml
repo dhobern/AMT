@@ -1,0 +1,13 @@
+# AMT configuration file
+
+### Darwin core elements ###
+
+event:
+  basisofrecord: Machine observation
+
+provenance:
+  datacapture:
+  # Whatevs
+    hardware:
+      gpiogreen: 25
+      gpiored: 7

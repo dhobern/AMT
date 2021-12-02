@@ -1,0 +1,25 @@
+# AMT configuration file - overrides settings in amt_defaultconfig.yaml
+
+### Darwin core elements ###
+
+event:
+
+  latitude: -35.264
+  longitude: 149.084
+  basisofrecord: Machine observation
+  recordedby: 
+    name: Donald Hobern
+    email: dhobern@gmail.com
+    orcid: 0000-0001-6492-4016
+
+provenance:
+
+  capture:
+
+    # Unique identifier for the current AMT unit - defaults to hostname
+    unitname: AMT-Alpha
+
+    timing:
+      interval: 20
+      initialdelay: 120
+      maximages: 270

@@ -152,8 +152,10 @@ def initcamera(config):
         camera.saturation = config['saturation']
     if 'sharpness' in config:
         camera.sharpness = config['sharpness']
-    if 'awbmode' in config:
-        camera.awb_mode = config['awbmode']
+    if 'awb_mode' in config:
+        camera.awb_mode = config['awb_mode']
+    if 'awb_gains' in config and isinstance(config['awb_gains'], list) and len(config['awb_gains']) == 2:
+        camera.awb_gains = (config['awb_gains'][0], config['awb_gains'][1])
     camera.start_preview()
     logging.info("Camera initialised")
     return camera

@@ -1,0 +1,10 @@
+# AMT configuration file - overrides settings in amt_defaultconfig.yaml
+
+provenance:
+  capture:
+    timing:
+      schedule:
+      - command: python3 /home/pi/amt_timelapse.py /home/pi/amt_timelapse.yaml
+        starttime: sunset+60
+      - command: python3 /home/pi/amt_timelapse.py /home/pi/amt_timelapse_rapid.yaml
+        starttime: 02:00

@@ -4,7 +4,6 @@ amt_util - Utility functions to support autonomous moth trap
 
  - loadconfig(filename = "amt_config.json") - load amt_config.json or specified JSON config files - returns config data as dictionary
  - selectpin(config, key, default, nullable = False) - return GPIO pin in BCM mode based on config file - returns pin number
- - selectadafruitpin(config, key, default) - return adafruit Pin based on config file - returns Pin object
  - initstatus(config) - set up status light based on config file - returns current state of light
  - showstatus(color, flashcount = 0) - set status light color or flash status light a number of times
  - converttz(time, from_zone, to_zone) - map datetime to specified timezone, returns modified datetime object
@@ -51,7 +50,8 @@ Load configuration from a JSON file, with the following elements:
  - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
  - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
  - quality: Image quality for camera (1-100, PiCamera default is 85)
- - awbmode: Automated white balance setting for camera (one of 'off', 'auto', 'sunlight', 'cloudy', 'shade', 'tungsten', 'fluorescent', 'incandescent', 'flash', 'horizon', PiCamera default is 'auto')
+ - awb_mode: Automated white balance setting for camera (one of 'off', 'auto', 'sunlight', 'cloudy', 'shade', 'tungsten', 'fluorescent', 'incandescent', 'flash', 'horizon', PiCamera default is 'auto')
+ - awb_gains: Automated white balance red/blue gains for camera (a tuple with two float values for the red and blue gains)
  - interval: Time lapse interval in seconds
  - initialdelay: Delay in seconds between enabling lights and DHT22 sensor before capturing images
  - maximages: Maximum number of images to collect (-1 for unlimited)
@@ -66,8 +66,8 @@ Load configuration from a JSON file, with the following elements:
  - gpiomanual: Raspberry Pi GPIO pin for indicating manual mode operation (default 22)
  - gpiotransfer: Raspberry Pi GPIO pin for indicating transfer mode operation (default 27)
  - gpioshutdown: Raspberry Pi GPIO pin for indicating shutdown mode operation (default 17)
- - gpiotrigger: Raspberry Pi GPIO pin to receive signal to initiate modes (default 15)
- - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast, saturation and awbmode (default "")
+ - gpiotrigger: Raspberry Pi GPIO pin to receive signal to initiate modes (default 16)
+ - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast, saturation, awb_mode and awb_gains (default "")
 
 The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter.
 """
@@ -102,7 +102,7 @@ gpioshutdown = 17
 gpiolights = 26
 gpiosensorpower = 10
 gpiosensordata = 9
-gpiotrigger = 15
+gpiotrigger = 16
 
 """
 Modes for operation of unit
@@ -235,22 +235,28 @@ The key question is when the NEXT sunrise will occur. (If the trap runs and ends
 before sunset, this case can still be measured in relation to the coming night (as a
 negative offset).
 
-The function therefore gets sunrise for the current date. If this time is prior to the
-current time, the function requests the sunrise time for the subsequent day. Ragardless,
-it then requests the sunset time for the day before the sunrise time.
+By default, the function therefore gets sunrise for the current date. If this time is 
+prior to the current time, the function requests the sunrise time for the subsequent 
+day. Ragardless, it then requests the sunset time for the day before the sunrise time.
+
+If querytime is specified, the function behaves as if it were called at the specified
+time. Calling the function for 12:00 on a given date will give the expected sunset and 
+sunrise for the following night.
 
 Returns sunsettime, sunrisetime
 """
-def getsuntimes(latitude, longitude):
+def getsuntimes(latitude, longitude, querytime = None):
     sun = Sun(latitude, longitude)
     from_zone = tz.tzutc()
     to_zone = tz.tzlocal()
 
-    now = datetime.today().replace(tzinfo=to_zone)
-    sunrise = converttz(sun.get_sunrise_time(), from_zone, to_zone)
+    if querytime is None:   
+        querytime = datetime.today().replace(tzinfo=to_zone)
+        
+    sunrise = converttz(sun.get_sunrise_time(querytime), from_zone, to_zone)
 
-    if now > sunrise:
-        sunrise = converttz(sun.get_sunrise_time(now + timedelta(days=1)), from_zone, to_zone)
+    if querytime > sunrise:
+        sunrise = converttz(sun.get_sunrise_time(querytime + timedelta(days=1)), from_zone, to_zone)
 
     sunset = converttz(sun.get_sunset_time(sunrise - timedelta(days=1)), from_zone, to_zone)
 
@@ -327,11 +333,30 @@ def calibratecamera(camera, series, calibrationfolder, config):
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
             camera.saturation = config['saturation'] if 'saturation' in config else 0
-        elif choice == 'awbmode':
+        elif choice == 'awb_mode':
             for i in PiCamera.AWB_MODES:
                 camera.awb_mode = i
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + i + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
-            camera.awb_mode = config['awbmode'] if 'awbmode' in config else 'auto'
+            camera.awb_mode = config['awb_mode'] if 'awb_mode' in config else 'auto'
+        elif choice == 'awb_gains':
+            camera.awb_mode = 'off'
+            gains = camera.awb_gains
+            if 'awb_gains' in config and isinstance(config['awb_gains'], list) and len(config['awb_gains']) == 2:
+                averagegains = (config['awb_gains'][0], config['awb_gains'][1])
+                gainstep = 0.1
+            else:
+                averagegains = (2.0, 2.0)
+                gainstep = 0.3
+            for i in range(11):
+                for j in range(11):
+                    camera.awb_mode = 'off'
+                    red_gain = averagegains[0] + (i - 5) * gainstep
+                    blue_gain = averagegains[1] + (j - 5) * gainstep
+                    camera.awb_gains = (red_gain, blue_gain)
+                    camera.capture(os.path.join(calibrationfolder, choice + '_R' + '{:4.2f}'.format(red_gain) + '-B' + '{:4.2f}'.format(blue_gain) + '.jpg'), format = "jpeg", quality = defaultquality)
+                    showstatus('red', 1, 0.05)
+            camera.awb_mode = config['awb_mode'] if 'awb_mode' in config else 'auto'
+            camera.awb_gains = gains
     logging.info("Calibration images complete")
     showstatus(currentcolor)
