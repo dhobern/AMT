@@ -58,29 +58,31 @@ capturetargetname = 'captures'
 unitname = "UNKNOWN"
 
 # Transfer files according to configured requirements
-def transferfiles():
-    mainconfig = loadconfig('/home/pi/amt_config.json')
-    if mainconfig is not None:
-        if "unitname" in mainconfig:
-            unitname = mainconfig['unitname']
-        if "folder" in mainconfig:
-            capturesource = mainconfig['folder']
+def transferfiles(config):
+    unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    folder = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     xferconfig = None
     amtfolder = os.path.join(basefolder, "AMT")
     if not os.path.exists(amtfolder):
         os.mkdir(amtfolder)
     if os.path.isdir(amtfolder):
-        xferconfigname = os.path.join(amtfolder, "amt_transfer.json")
+        xferconfigname = os.path.join(amtfolder, "amt_transfer.yaml")
         if os.path.exists(xferconfigname) and os.path.isfile(xferconfigname):
-            xferconfig = loadconfig(xferconfigname)
+            xferconfig = AmtConfiguration(False, xferconfigname)
             logging.info("Loaded config file")
             print(str(xferconfig))
 
-    if xferconfig is None:
-        xferconfig = {}
-        xferconfig['exportimages'] = True
+    transferimages = False
+    deleteontransfer = False
+    if xferconfig is not None:
+        transferimages = xferconfig.get(TRANSFER_IMAGES, SECTION_TRANSFER)
+        if transferimages is None:
+            transferimages = False
+        deleteontransfer = xferconfig.get(TRANSFER_DELETEONTRANSFER, SECTION_TRANSFER)
+        if deleteontransfer is None:
+            deleteontransfer = False
 
-    if 'exportimages' in xferconfig and xferconfig['exportimages']:
+    if xferimages:
         logging.info("Exporting images")
         capturesfolder = os.path.join(amtfolder, capturetargetname)
         if not os.path.isdir(capturesfolder):
@@ -102,7 +104,7 @@ def transferfiles():
                     success = False
                     logging.error("Copy of " + capturesubfolder + " failed")
                 logging.info("Copied " + capturesubfolder)
-            if success and 'deleteonexport' in xferconfig and xferconfig['deleteonexport']:
+            if success and deleteontransfer:
                 for c in os.listdir(capturesource):
                     try:
                         capturesubfolder = os.path.join(capturesource, c)
@@ -117,4 +119,5 @@ def transferfiles():
 # Run main
 if __name__=="__main__": 
     initlog("/home/pi/amt_transfer.log")
-    transferfiles()
+    config = AmtConfiguration(True)
+    transferfiles(config)

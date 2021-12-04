@@ -1,0 +1,30 @@
+# AMT default configuration file
+event:
+  basisofrecord: Machine observation
+provenance:
+  capture:
+    mode: TimeLapse
+    gpiogreen: 25
+    gpiored: 7
+    gpiolights: 26
+    gpioenvpower: 10
+    gpioenvdata: 9
+    gpiogpspower: 24
+    gpiomanualmode: 22
+    gpiotransfermode: 27
+    gpioshutdownmode: 17
+    gpiomodetrigger: 16
+    folder: /home/pi/AMT/
+    envsensor: none
+    gpssensor: none
+    imagewidth: 4056
+    imageheight: 3040
+    brightness: 62
+    contrast: 30
+    saturation: 20
+    sharpness: 50
+    quality: 20
+    awb_mode: 'off'
+    awb_gains: 
+    - 2.8
+    - 1.6

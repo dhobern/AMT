@@ -25,12 +25,12 @@ Configuration is provided via a JSON file, with the following elements:
  - maximages: Maximum number of images to collect (-1 for unlimited)
  - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
  - statuslight: Specify whether to use red/green status light (true/false, defaults to false)
- - sensortype: Specify whether to use DHT11/DHT22 temperature/humidity sensor (one of "DHT22", "DHT11", "None")
+ - envsensor: Specify whether to use DHT11/DHT22 temperature/humidity sensor (one of "DHT22", "DHT11", "None")
  - gpiogreen = Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
  - gpiored = Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
  - gpiolights = Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
- - gpiosensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
- - gpiosensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
+ - gpioenvsensorpower = Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
+ - gpioenvsensordata = Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
 
 The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter. Whichever configuration file is used, a copy is saved with the captured images.
 """
@@ -43,6 +43,8 @@ __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"
 __status__ = "Production"
 
+from amt_config import *
+from amt_util import *
 from picamera import PiCamera
 import time
 from datetime import datetime
@@ -55,9 +57,7 @@ import json
 import pigpio
 import DHT
 import logging
-
-# Common utility functions
-from amt_util import *
+import socket
 
 # Current mode
 manual = False
@@ -66,8 +66,8 @@ manual = False
 statuslight = False
 
 # Only enable sensor if specified in configuration file
-sensortype = None
-sensor = None
+envsensor = None
+dht = None
 
 # Object in pigpio to represent board
 pi = None
@@ -82,19 +82,25 @@ def modestillvalid(manual):
 # Store additional metadata in config dictionary
 def addmetadata(config):
     global manual
-    if "latitude" in config and "longitude" in config and config["latitude"] is not None and config["longitude"] is not None:
-        sunset, sunrise = getsuntimes(config["latitude"], config["longitude"])
-        config["sunset"] = sunset.isoformat()
-        config["sunrise"] = sunrise.isoformat()
-    config["lunarphase"] = getlunarphase()
-    config["program"] = " ".join(sys.argv)
-    config["version"] = __version__
-    config["trigger"] = "Manual" if manual else "Automatic"
+    unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if unitname is None:
+        config.set(CAPTURE_UNITNAME, socket.gethostname(), SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+
+    latitude = config.get(EVENT_LATITUDE, SECTION_EVENT)
+    longitude = config.get(EVENT_LONGITUDE, SECTION_EVENT)
+    if latitude is not None and longitude is not None:
+        sunset, sunrise = getsuntimes(latitude, longitude)
+        config.set(EVENT_SUNSETTIME, sunset.isoformat(), SECTION_EVENT)
+        config.set(EVENT_SUNRISETIME, sunrise.isoformat(), SECTION_EVENT)
+    config.set(EVENT_LUNARPHASE, getlunarphase(), SECTION_EVENT)
+    config.set(CAPTURE_PROGRAM, " ".join(sys.argv), SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    config.set(CAPTURE_VERSION, __version__, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    config.set(CAPTURE_TRIGGER, "Manual" if manual else "Automatic", SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     return config
 
-# Enable GPIO control and, if appropriate, enable status light, sensor sensor and main lights
+# Enable GPIO control and, if appropriate, enable status light, sensor and main lights
 def initoperation(config):
-    global statuslight, sensortype, gpiogreen, gpiored, gpiolights, gpiosensorpower, gpiosensordata, originalstatus
+    global statuslight, envsensor, gpiogreen, gpiored, gpiolights, gpioenvsensorpower, gpioenvsensordata, originalstatus
 
     # Set up the mode pins
     initboard(config)
@@ -102,85 +108,93 @@ def initoperation(config):
     # Set up status light and store original color
     originalstatus = initstatus()
 
-    if 'statuslight' in config and config['statuslight']:
-        statuslight = True
+    statuslight = config.get(CAPTURE_STATUSLIGHT, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if statuslight:
         showstatus("green")
 
-    if 'sensortype' in config and config['sensortype'] in ["DHT22", "DHT11"]:
-        sensortype = config['sensortype']
+    envsensor = config.get(CAPTURE_ENVSENSOR, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if envsensor not in ["DHT22", "DHT11"]:
+        envsensor = None
 
-# Turn sensor sensor on or off if enabled
+# Turn sensor on or off if enabled
 def enablesensor(activate):
-    global sensortype, gpiosensorpower, gpiosensordata, sensor, pi
+    global envsensor, gpioenvsensorpower, gpioenvsensordata, dht, pi
 
-    if sensortype is not None:
+    if envsensor is not None:
         if activate:
-            # Power may be hardwired (gpiosensorpower == -1)
-            if gpiosensorpower > 0:
-                logging.info("Enabling sensor power")
-                GPIO.output(gpiosensorpower, GPIO.HIGH)
+            # Power may be hardwired (gpioenvsensorpower == -1)
+            if gpioenvsensorpower > 0:
+                logging.info("Enabling " + envsensor + " sensor power")
+                GPIO.output(gpioenvsensorpower, GPIO.HIGH)
             pi = pigpio.pi()
             try:
-                if sensortype == "DHT22":
-                    sensor = DHT.sensor(pi, gpiosensordata, DHT.DHTXX)
-                elif sensortype == "DHT11":
-                    sensor = DHT.sensor(pi, gpiosensordata, DHT.DHT11)
+                if envsensor == "DHT22":
+                    dht = DHT.sensor(pi, gpioenvsensordata, DHT.DHTXX)
+                elif envsensor == "DHT11":
+                    dht = DHT.sensor(pi, gpioenvsensordata, DHT.DHT11)
                 logging.info("Sensor enabled")
             except:
                 logging.error("Could not initialise sensor")
                 pi.stop()
                 pi = None
-                sensor = None
+                dht = None
 
         else:
-            if sensor is not None:
-                sensor.cancel()
+            if dht is not None:
+                dht.cancel()
                 pi.stop()
-            if gpiosensorpower > 0:
-                GPIO.output(gpiosensorpower, GPIO.LOW)
+            if gpioenvsensorpower > 0:
+                GPIO.output(gpioenvsensorpower, GPIO.LOW)
             logging.info("Sensor disabled")
 
 # Return camera initialised using properties from config file - note that camera is already in preview when returned
 def initcamera(config):
     camera = PiCamera()
-    camera.resolution = (config['imagewidth'], config['imageheight'])
-    if 'brightness' in config:
-        camera.brightness = config['brightness']
-    if 'contrast' in config:
-        camera.contrast = config['contrast']
-    if 'saturation' in config:
-        camera.saturation = config['saturation']
-    if 'sharpness' in config:
-        camera.sharpness = config['sharpness']
-    if 'awb_mode' in config:
-        camera.awb_mode = config['awb_mode']
-    if 'awb_gains' in config and isinstance(config['awb_gains'], list) and len(config['awb_gains']) == 2:
-        camera.awb_gains = (config['awb_gains'][0], config['awb_gains'][1])
+    camera.resolution = (config.get(CAPTURE_IMAGEWIDTH, SECTION_PROVENANCE, SUBSECTION_CAPTURE), config.get(CAPTURE_IMAGEHEIGHT, SECTION_PROVENANCE, SUBSECTION_CAPTURE))
+    brightness = config.get(CAPTURE_BRIGHTNESS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if brightness is not None:
+        camera.brightness = brightness
+    contrast = config.get(CAPTURE_CONTRAST, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if contrast is not None:
+        camera.contrast = contrast
+    saturation = config.get(CAPTURE_SATURATION, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if saturation is not None:
+        camera.saturation = saturation
+    sharpness = config.get(CAPTURE_SHARPNESS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if sharpness is not None:
+        camera.sharpness = sharpness
+    awb_mode = config.get(CAPTURE_AWBMODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if awb_mode is not None:
+        camera.awb_mode = awb_mode
+    awb_gains = config.get(CAPTURE_AWBGAINS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if awb_gains is not None and isinstance(awb_gains, list) and len(awb_gains) == 2:
+        camera.awb_gains = awb_gains
     camera.start_preview()
     logging.info("Camera initialised")
     return camera
 
 # Create target folder for this run and make a copy of the current configfile to allow future interpretation
 def initfolder(config):
-    if not os.path.isdir(config['folder']):
-        os.mkdir(config['folder'])
+    folder = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if not os.path.isdir(folder):
+        os.mkdir(folder)
     timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
-    foldername = os.path.join(config['folder'], timestamp)
+    foldername = os.path.join(folder, timestamp)
     os.mkdir(foldername)
-    json.dump(config, open(os.path.join(foldername, "amt_metadata.json"), "w"), indent = 4)
+    config.dump(os.path.join(foldername, CONFIG_METADATA))
     logging.info("Output folder created: " + foldername)
     return foldername
 
 # Return string with temperature and humidity encoded or empty string otherwise
 def readsensor():
-    global sensor, sensortype
+    global dht, envsensor
 
-    if sensor is not None:
-        datum = sensor.read()
+    if dht is not None:
+        datum = dht.read()
         if datum[2] == 0:
             return "-TempC_" + str(datum[3]) + "-Humid_" + str(datum[4])
         else:
-            logging.error(sensortype + " sensor returned " + ["DHT_GOOD", "DHT_BAD_CHECKSUM", "DHT_BAD_DATA", "DHT_TIMEOUT"][datum[2]])
+            logging.error(envsensor + " sensor returned " + ["DHT_GOOD", "DHT_BAD_CHECKSUM", "DHT_BAD_DATA", "DHT_TIMEOUT"][datum[2]])
 
     return ""
 
@@ -210,16 +224,18 @@ def timelapse(manuallytriggered = False):
     # Optionally override default configuration file
     if len(sys.argv) > 1:
         configfilename = sys.argv[1]
-        logging.info("Config file: " + configfilename)
+        logging.info("Settings file: " + configfilename)
     else:
         configfilename = None
 
     # Initialise from config settings
-    config = loadconfig(configfilename)
-    labeltext = '-' + config['unitname'] + '-' + config['mode'] + '-' + str(config['interval'])
-    interval = config['interval']
-    imagecount = config['maximages']
-    jpegquality = config['quality']
+    config = addmetadata(AmtConfiguration(True, configfilename))
+    interval = config.get(CAPTURE_INTERVAL, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    imagecount = config.get(CAPTURE_MAXIMAGES, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if imagecount is None:
+        imagecount = -1
+    jpegquality = config.get(CAPTURE_QUALITY, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    labeltext = '-{}-{}-{}'.format(config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE), config.get(CAPTURE_MODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE), str(interval))
     logging.info("Quality: " + str(jpegquality))
     initoperation(config)
 
@@ -231,21 +247,22 @@ def timelapse(manuallytriggered = False):
     addmetadata(config)
     foldername = initfolder(config)
     enablelights(True)
-    if sensortype is not None:
+    if envsensor is not None:
         enablesensor(True)
-        logging.info(sensortype + " sensor enabled")
+        logging.info(envsensor + " sensor enabled")
 
     # If specified, wait before imaging
-    if config['initialdelay'] is not None:
-        logging.info("Initial delay: " + str(config['initialdelay']) + " seconds")
+    initialdelay = config.get(CAPTURE_INITIALDELAY, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if initialdelay is not None:
+        logging.info("Initial delay: " + str(initialdelay) + " seconds")
         if modestillvalid(manual):
-            for i in range(config['initialdelay']):
+            for i in range(initialdelay):
                 time.sleep(1)
                 if not modestillvalid(manual):
                     logging.info("Mode change - aborting timelapse")
                     break
         else:
-            time.sleep(config['initialdelay'])
+            time.sleep(initialdelay)
 
     if modestillvalid(manual):
         camera = initcamera(config)
@@ -267,8 +284,9 @@ def timelapse(manuallytriggered = False):
 
         logging.info("Time series complete")
 
-        if 'calibration' in config and config['calibration'] is not None:
-            calibratecamera(camera, config['calibration'].split(','), os.path.join(foldername, "calibration"), config)
+        calibration = config.get(CAPTURE_CALIBRATION, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+        if calibration is not None:
+            calibratecamera(camera, calibration.split(','), os.path.join(foldername, "calibration"), config)
 
         camera.close()
 

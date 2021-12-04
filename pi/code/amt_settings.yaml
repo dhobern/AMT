@@ -1,0 +1,14 @@
+# AMT configuration file - overrides settings in amt_defaults.yaml - see amt_config.py for documentation
+
+### Darwin core elements ###
+event:
+  recordedby: 
+    name: Donald Hobern
+    email: dhobern@gmail.com
+    orcid: 0000-0001-6492-4016
+
+provenance:
+  capture:
+    interval: 20
+    initialdelay: 120
+    maximages: 270

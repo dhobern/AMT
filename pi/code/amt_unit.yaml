@@ -1,0 +1,13 @@
+# AMT unit configuration file
+
+provenance:
+  capture:
+    processor: Raspberry Pi Zero W
+    camera: Raspberry Pi HQ + 6mm Wide Angle Lens
+    operatingdistance: 265
+    uvlight: High-power LED tube - 4 UV, 1 green, 1 blue
+    illumination: 10-inch ring light
+    envsensor: DHT22
+    gpssensor: BN220
+    imagewidth: 4056
+    imageheight: 3040

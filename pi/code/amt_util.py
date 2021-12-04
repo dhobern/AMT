@@ -24,6 +24,7 @@ __status__ = "Production"
 from datetime import datetime, timedelta
 from suntime import Sun, SunTimeException
 from dateutil import tz
+from amt_config import *
 import RPi.GPIO as GPIO
 import math
 import decimal
@@ -71,20 +72,13 @@ Load configuration from a JSON file, with the following elements:
 
 The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter.
 """
-def loadconfig(filename = None):
-    if filename is None:
-        filename = "amt_config.json"
-    data = {}
-    with open(filename) as file:
-        data = json.load(file)
-    return data
 
 """
 Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
 """
 def selectpin(config, key, default, nullable = False):
-    if key in config:
-        value = config[key]
+    value = config.get(key, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if value is not None:
         if value >= 2 and value <= 27:
             return value
         elif nullable and value == -1:
@@ -100,8 +94,9 @@ gpiomanual = 22
 gpiotransfer = 27
 gpioshutdown = 17
 gpiolights = 26
-gpiosensorpower = 10
-gpiosensordata = 9
+gpioenvsensorpower = 10
+gpioenvsensordata = 9
+gpiogpssensorpower = 24
 gpiotrigger = 16
 
 """
@@ -115,31 +110,32 @@ SHUTDOWN = 3
 modenames = ["Automatic", "Manual", "Transfer", "Shutdown"]
 
 """
-Set up up the pins
+Set up the pins
 """
 def initboard(config):
-    global gpiogreen, gpiored, gpiomanual, gpiotransfer, gpioshutdown, gpiolights, gpiosensordata, gpiosensorpower, gpiotrigger
+    global gpiogreen, gpiored, gpiomanual, gpiotransfer, gpioshutdown, gpiolights, gpioenvsensordata, gpioenvsensorpower, gpiogpssensorpower, gpiotrigger
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
-    gpiomanual = selectpin(config, 'gpiomanual', gpiomanual)
-    gpiotransfer = selectpin(config, 'gpiotransfer', gpiotransfer)
-    gpioshutdown = selectpin(config, 'gpioshutdown', gpioshutdown)
-    gpiogreen = selectpin(config, 'gpiogreen', gpiogreen)
-    gpiored = selectpin(config, 'gpiored', gpiored)
-    gpiolights = selectpin(config, 'gpiolights', gpiolights)
-    gpiosensordata = selectpin(config, 'gpiosensordata', gpiosensordata)
-    gpiotrigger = selectpin(config, 'gpiotrigger', gpiotrigger)
+    gpiomanual = selectpin(config, CAPTURE_GPIOMANUALMODE, gpiomanual)
+    gpiotransfer = selectpin(config, CAPTURE_GPIOTRANSFERMODE, gpiotransfer)
+    gpioshutdown = selectpin(config, CAPTURE_GPIOSHUTDOWNMODE, gpioshutdown)
+    gpiogreen = selectpin(config, CAPTURE_GPIOGREEN, gpiogreen)
+    gpiored = selectpin(config, CAPTURE_GPIORED, gpiored)
+    gpiolights = selectpin(config, CAPTURE_GPIOLIGHTS, gpiolights)
+    gpioenvsensordata = selectpin(config, CAPTURE_GPIOENVDATA, gpioenvsensordata)
+    gpiotrigger = selectpin(config, CAPTURE_GPIOMODETRIGGER, gpiotrigger)
     # Allow -1 for power pin if attached directly to voltage pin
-    gpiosensorpower = selectpin(config, 'gpiosensorpower', gpiosensorpower, True)
+    gpioenvsensorpower = selectpin(config, CAPTURE_GPIOENVPOWER, gpioenvsensorpower, True)
+    gpiogpssensorpower = selectpin(config, CAPTURE_GPIOGPSPOWER, gpiogpssensorpower, True)
     GPIO.setup(gpiomanual, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(gpiotransfer, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(gpioshutdown, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(gpiogreen, GPIO.OUT)
     GPIO.setup(gpiored, GPIO.OUT)
-    if gpiosensorpower > 0:
-        logging.info("Power pin is " + str(gpiosensorpower))
-        GPIO.setup(gpiosensorpower, GPIO.OUT)
+    if gpioenvsensorpower > 0:
+        logging.info("Environmental sensor power pin is " + str(gpioenvsensorpower))
+        GPIO.setup(gpioenvsensorpower, GPIO.OUT)
     GPIO.setup(gpiolights, GPIO.OUT)
     GPIO.setup(gpiotrigger, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     logging.info("GPIO pins enabled")
@@ -303,7 +299,9 @@ def calibratecamera(camera, series, calibrationfolder, config):
     if not os.path.isdir(calibrationfolder):
         os.mkdir(calibrationfolder)
 
-    defaultquality = config['quality'] if 'quality' in config else 85
+    defaultquality = config.get(CAPTURE_QUALITY, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if defaultquality is None:
+        defaultquality = 85
     for choice in series:
         if choice == 'quality':
             for i in range(10, 100, 10):
@@ -314,36 +312,42 @@ def calibratecamera(camera, series, calibrationfolder, config):
                 camera.brightness = i
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
-            camera.brightness = config['brightness'] if 'brightness' in config else 50
+            brightness = config.get(CAPTURE_BRIGHTNESS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            camera.brightness = brightness if brightness is not None else 50
         elif choice == 'sharpness':
             for i in range(-100, 101, 10):
                 camera.sharpness = i
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
-            camera.sharpness = config['sharpness'] if 'sharpness' in config else 0
+            sharpness = config.get(CAPTURE_SHARPNESS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            camera.sharpness = sharpness if sharpness is not None else 0
         elif choice == 'contrast':
             for i in range(-100, 101, 10):
                 camera.contrast = i
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
-            camera.contrast = config['contrast'] if 'contrast' in config else 0
+            contrast = config.get(CAPTURE_CONTRAST, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            camera.contrast = contrast if contrast is not None else 0
         elif choice == 'saturation':
             for i in range(-100, 101, 10):
                 camera.saturation = i
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + str(i) + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
-            camera.saturation = config['saturation'] if 'saturation' in config else 0
+            saturation = config.get(CAPTURE_SATURATION, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            camera.saturation = saturation if saturation is not None else 0
         elif choice == 'awb_mode':
             for i in PiCamera.AWB_MODES:
                 camera.awb_mode = i
                 camera.capture(os.path.join(calibrationfolder, choice + "_" + i + '.jpg'), format = "jpeg", quality = defaultquality)
                 showstatus('red', 1, 0.05)
-            camera.awb_mode = config['awb_mode'] if 'awb_mode' in config else 'auto'
+            awb_mode = config.get(CAPTURE_AWBMODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            camera.awb_mode = awb_mode if awb_mode is not None else 'auto'
         elif choice == 'awb_gains':
             camera.awb_mode = 'off'
             gains = camera.awb_gains
-            if 'awb_gains' in config and isinstance(config['awb_gains'], list) and len(config['awb_gains']) == 2:
-                averagegains = (config['awb_gains'][0], config['awb_gains'][1])
+            awb_gains = config.get(CAPTURE_AWBGAINS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            if awb_gains is not None and isinstance(awb_gains, list) and len(awb_gains) == 2:
+                averagegains = (awb_gains[0], awb_gains[1])
                 gainstep = 0.1
             else:
                 averagegains = (2.0, 2.0)
@@ -356,7 +360,8 @@ def calibratecamera(camera, series, calibrationfolder, config):
                     camera.awb_gains = (red_gain, blue_gain)
                     camera.capture(os.path.join(calibrationfolder, choice + '_R' + '{:4.2f}'.format(red_gain) + '-B' + '{:4.2f}'.format(blue_gain) + '.jpg'), format = "jpeg", quality = defaultquality)
                     showstatus('red', 1, 0.05)
-            camera.awb_mode = config['awb_mode'] if 'awb_mode' in config else 'auto'
+            awb_mode = config.get(CAPTURE_AWBMODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+            camera.awb_mode = awb_mode if awb_mode is not None else 'auto'
             camera.awb_gains = gains
     logging.info("Calibration images complete")
     showstatus(currentcolor)
