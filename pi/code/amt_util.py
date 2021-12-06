@@ -7,7 +7,7 @@ amt_util - Utility functions to support autonomous moth trap
  - initstatus(config) - set up status light based on config file - returns current state of light
  - showstatus(color, flashcount = 0) - set status light color or flash status light a number of times
  - converttz(time, from_zone, to_zone) - map datetime to specified timezone, returns modified datetime object
- - getsuntimes(latitude, longitude) - get sunrise and sunset for coming/present night from coordinates, returns two datetimes for sunset and sunrise, respectively
+ - getsuntimes(config, latitude, longitude, querytime = none) - get sunrise and sunset for coming/present night from coordinates, writes two datetimes for sunset and sunrise respectively to config and returns them. querytime overrides the datetime for evaluation.
  - getlunarphase() - get current lunar phase as string, returns one of "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent"
 
 For more information see https://amt.hobern.net/.
@@ -241,7 +241,21 @@ sunrise for the following night.
 
 Returns sunsettime, sunrisetime
 """
-def getsuntimes(latitude, longitude, querytime = None):
+def getsuntimes(config, latitude, longitude, querytime = None):
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+    except:
+        logging.error("Invalid coordinates - not a float")
+        return None, None
+
+    if latitude < -90 or latitude > 90:
+        logging.error("Invalid coordinates - latitude (" + str(latitude) + ") out of range")
+        return None, None
+    if longitude < -180 or longitude > 180:
+        logging.error("Invalid coordinates - longitude (" + str(longitude) + ") out of range")
+        return None, None
+
     sun = Sun(latitude, longitude)
     from_zone = tz.tzutc()
     to_zone = tz.tzlocal()
@@ -255,6 +269,12 @@ def getsuntimes(latitude, longitude, querytime = None):
         sunrise = converttz(sun.get_sunrise_time(querytime + timedelta(days=1)), from_zone, to_zone)
 
     sunset = converttz(sun.get_sunset_time(sunrise - timedelta(days=1)), from_zone, to_zone)
+
+    if config:
+        if sunset:
+            config.set(EVENT_SUNSETTIME, sunset.isoformat(), SECTION_EVENT)
+        if sunrise:
+            config.set(EVENT_SUNRISETIME, sunrise.isoformat(), SECTION_EVENT)
 
     return sunset, sunrise
 

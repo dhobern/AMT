@@ -91,15 +91,13 @@ while listening:
         try:
             timelapse(True)
         except Exception as exc:
-            logging.error("Caught exception")
-            logging.error(exc)
+            logging.exception("Caught exception in timelapse")
     elif mode == TRANSFER:
         showstatus('red')
         try:
             transferfiles()
         except Exception as exc:
-            logging.error("Caught exception")
-            logging.error(exc)
+            logging.error("Caught exception in transferfiles")
         showstatus(originalstatus)
     elif mode == SHUTDOWN:
         showstatus('red', 3)

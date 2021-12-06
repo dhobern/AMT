@@ -85,13 +85,10 @@ def addmetadata(config):
     unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if unitname is None:
         config.set(CAPTURE_UNITNAME, socket.gethostname(), SECTION_PROVENANCE, SUBSECTION_CAPTURE)
-
     latitude = config.get(EVENT_LATITUDE, SECTION_EVENT)
     longitude = config.get(EVENT_LONGITUDE, SECTION_EVENT)
     if latitude is not None and longitude is not None:
-        sunset, sunrise = getsuntimes(latitude, longitude)
-        config.set(EVENT_SUNSETTIME, sunset.isoformat(), SECTION_EVENT)
-        config.set(EVENT_SUNRISETIME, sunrise.isoformat(), SECTION_EVENT)
+        getsuntimes(config, latitude, longitude)
     config.set(EVENT_LUNARPHASE, getlunarphase(), SECTION_EVENT)
     config.set(CAPTURE_PROGRAM, " ".join(sys.argv), SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     config.set(CAPTURE_VERSION, __version__, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
