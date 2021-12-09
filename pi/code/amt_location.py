@@ -15,7 +15,7 @@ This module makes calls to other modules which make use of additional properties
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
-__license__ = "CC-BY-4.0"
+__license__ = "MIT"
 __version__ = "0.9.0"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"

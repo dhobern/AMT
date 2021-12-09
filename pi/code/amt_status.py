@@ -12,7 +12,7 @@ The LED pins default to GPIO25 for green and GPIO7 for red (BCM mode) but may be
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
-__license__ = "CC-BY-4.0"
+__license__ = "MIT"
 __version__ = "0.9.1"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"

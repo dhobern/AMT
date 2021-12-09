@@ -37,7 +37,7 @@ The default configuration file is amt_config.json in the current folder. An alte
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
-__license__ = "CC-BY-4.0"
+__license__ = "MIT"
 __version__ = "0.9.2"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"

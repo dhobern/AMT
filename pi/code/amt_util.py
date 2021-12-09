@@ -15,7 +15,7 @@ For more information see https://amt.hobern.net/.
 __author__ = "Donald Hobern"
 __copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
-__license__ = "CC-BY-4.0"
+__license__ = "MIT"
 __version__ = "0.9.3"
 __maintainer__ = "Donald Hobern"
 __email__ = "dhobern@gmail.com"
@@ -33,45 +33,6 @@ import time
 import logging
 import os
 from picamera import PiCamera
-
-"""
-Load configuration from a JSON file, with the following elements:
-
- - unitname: Unique identifier for the current AMT unit - should only include characters that can be used in a filename
- - processor: Purely to document for future users (e.g. "Raspberry Pi Zero W")
- - camera: Purely to document for future users (e.g. "Raspberry Pi HQ + 6mm Wide Angle Lens")
- - operatingdistance: Purely to document the operating distance of the camera from the illuminated surface, in mm
- - mothlight: Purely to document for future users (e.g. "High-power LED tube: 4 UV, 1 green, 1 blue")
- - illumination: Purely to document for future users (e.g. "10-inch ring light")
- - mode: The operating model, currently only "TimeLapse" is supported
- - imagewidth: Image width for camera resolution in pixels
- - imageheight: Image height for camera resolution in pixels
- - brightness: Image brightness for camera (0-100, PiCamera default is 50)
- - contrast: Image contrast for camera (-100-100, PiCamera default is 0)
- - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
- - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
- - quality: Image quality for camera (1-100, PiCamera default is 85)
- - awb_mode: Automated white balance setting for camera (one of 'off', 'auto', 'sunlight', 'cloudy', 'shade', 'tungsten', 'fluorescent', 'incandescent', 'flash', 'horizon', PiCamera default is 'auto')
- - awb_gains: Automated white balance red/blue gains for camera (a tuple with two float values for the red and blue gains)
- - interval: Time lapse interval in seconds
- - initialdelay: Delay in seconds between enabling lights and DHT22 sensor before capturing images
- - maximages: Maximum number of images to collect (-1 for unlimited)
- - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
- - statuslight: Specify whether to use red/green status light (true/false, defaults to false)
- - sensortype: Specify whether to use DHT11/DHT22 temperature/humidity sensor (one of "DHT22", "DHT11", "None")
- - gpiogreen: Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
- - gpiored: Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
- - gpiolights: Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
- - gpiosensorpower: Raspberry Pi GPIO pin for enabling 3.3V power to temperature/humidity sensor in BCM mode (default 10) - use -1 for power not from GPIO pin
- - gpiosensordata: Raspberry Pi GPIO pin for temperature/humidity sensor data in BCM mode (default 9)
- - gpiomanual: Raspberry Pi GPIO pin for indicating manual mode operation (default 22)
- - gpiotransfer: Raspberry Pi GPIO pin for indicating transfer mode operation (default 27)
- - gpioshutdown: Raspberry Pi GPIO pin for indicating shutdown mode operation (default 17)
- - gpiotrigger: Raspberry Pi GPIO pin to receive signal to initiate modes (default 16)
- - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast, saturation, awb_mode and awb_gains (default "")
-
-The default configuration file is amt_config.json in the current folder. An alternative may be identified as the first command line parameter.
-"""
 
 """
 Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
