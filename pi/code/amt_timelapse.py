@@ -55,7 +55,6 @@ import sys
 import signal
 import json
 import pigpio
-import DHT
 import logging
 import socket
 

@@ -271,7 +271,7 @@ def initlog(name):
     logging.basicConfig(filename=name, format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
 
 """
-Take series of calibration images for up to five different image aspects
+Take series of calibration images for different image aspects
 """
 def calibratecamera(camera, series, calibrationfolder, config):
     logging.info("Generating calibration images in " + calibrationfolder)
