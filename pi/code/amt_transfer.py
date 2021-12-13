@@ -53,27 +53,74 @@ import logging
 from amt_util import *
 
 basefolder = '/media/usb'
-capturesource = '/home/pi/AMT'
 capturetargetname = 'captures'
 unitname = "UNKNOWN"
+
+# Check whether two folders already match in file contents
+def filesmatch(folderA, folderB):
+    if not os.path.isdir(folderA) or not os.path.isdir(folderB):
+        return False
+
+    filesA = os.listdir(folderA)
+    filesB = os.listdir(folderB)
+
+    for f in filesA:
+        if f not in filesB:
+            return False
+        pathA = os.path.join(folderA, f)
+        pathB = os.path.join(folderB, f)
+        if os.path.isdir(pathA):
+            if not os.path.isdir(pathB):
+                return False
+            if filesdiffer(pathA, pathB):
+                return False
+        filesB.remove(f)
+
+    if len(filesB) > 0:
+        return False
+
+    return True
+
+
+def savefilebackup(amtfolder, file):
+    timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
+    parts = file.split(".")
+    if len(parts) > 1:
+        suffix = timestamp + "." + file.pop()
+        newfile = ".".join(parts) + suffix
+    else:
+        newfile = file + "-" + timestamp
+    
+    subprocess.call(['cp', file, os.path.join(amtfolder, newfile)])
+    logging.info("Copied " + file + " to " + newfile)
 
 # Transfer files according to configured requirements
 def transferfiles(config):
     unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
-    folder = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    capturesource = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     xferconfig = None
     amtfolder = os.path.join(basefolder, "AMT")
     if not os.path.exists(amtfolder):
         os.mkdir(amtfolder)
-    if os.path.isdir(amtfolder):
-        xferconfigname = os.path.join(amtfolder, "amt_transfer.yaml")
-        if os.path.exists(xferconfigname) and os.path.isfile(xferconfigname):
-            xferconfig = AmtConfiguration(False, xferconfigname)
-            logging.info("Loaded config file")
-            print(str(xferconfig))
+
+    loghandler = logging.FileHandler(os.path.join(amtfolder, 'amt_transfer.log'))
+    formatter = logging.Formatter(unitname + ': %(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    loghandler.setFormatter(formatter)
+    logging.addHandler(loghandler)
+
+    logging.info("AMT Transfer")
+
+    xferconfigname = os.path.join(amtfolder, "amt_transfer.yaml")
+    if os.path.exists(xferconfigname) and os.path.isfile(xferconfigname):
+        xferconfig = AmtConfiguration(False, xferconfigname)
+        logging.info("Loaded config file: " + xferconfigname)
 
     transferimages = False
     deleteontransfer = False
+    importconfiguration = False
+    updatesoftware = False
+
+
     if xferconfig is not None:
         transferimages = xferconfig.get(TRANSFER_IMAGES, SECTION_TRANSFER)
         if transferimages is None:
@@ -82,7 +129,7 @@ def transferfiles(config):
         if deleteontransfer is None:
             deleteontransfer = False
 
-    if xferimages:
+    if transferimages:
         logging.info("Exporting images")
         capturesfolder = os.path.join(amtfolder, capturetargetname)
         if not os.path.isdir(capturesfolder):
@@ -97,7 +144,9 @@ def transferfiles(config):
                 try:
                     capturesubfolder = os.path.join(capturesource, c)
                     destinationsubfolder = os.path.join(capturedestination, c)
-                    subprocess.call(['cp', '-fr',  capturesubfolder, destinationsubfolder], shell=False)
+                    # Don't copy files that have already been copied
+                    if not filesmatch(capturesubfolder, destinationsubfolder):
+                        subprocess.call(['cp', '-fr',  capturesubfolder, destinationsubfolder], shell=False)
                 except Error as err:
                     #errors.extend(err.args[0])
                     logging.error("Error copying files " + str(err.args[0]))
@@ -107,13 +156,35 @@ def transferfiles(config):
             if success and deleteontransfer:
                 for c in os.listdir(capturesource):
                     try:
+                        logging.info("Delete on transfer enabled - deleting images")
                         capturesubfolder = os.path.join(capturesource, c)
+                        logging.info("Deleting " + capturesubfolder)
                         subprocess.call(['rm', '-fr', capturesource], shell=False)
                     except Error as err:
                         #errors.extend(err.args[0])
                         logging.error("Error removing files " + str(err.args[0]))
                         break
-        subprocess.call(['sudo', 'umount', '/media/usb'], shell=False)
+
+    logging.removeHandler(loghandler)
+
+    if importconfiguration:
+        logging.info("Importing configuration")
+
+        importconfigurationfile = os.path.join(amtfolder, "amt_settings.yaml")
+        if not os.path.isfile(importconfigurationfile):
+            logging.error("No configuration file found at " + importconfigurationfile)
+        else:
+            savefilebackup("amt_settings.yaml")
+            subprocess.call(['cp', importconfigurationfile, "amt_settings.yaml"])
+
+            # TODO Reset main configuration
+
+            logging.info("Configuration updated")
+
+    if updatesoftware:
+        logging.info("Updating software")
+
+    subprocess.call(['sudo', 'umount', '/media/usb'], shell=False)
 
 
 # Run main
