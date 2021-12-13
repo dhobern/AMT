@@ -11,4 +11,4 @@ provenance:
   capture:
     interval: 20
     initialdelay: 120
-    maximages: 270
+    maximages: 720
