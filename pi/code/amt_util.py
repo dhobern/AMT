@@ -2,13 +2,18 @@
 """
 amt_util - Utility functions to support autonomous moth trap
 
- - loadconfig(filename = "amt_config.json") - load amt_config.json or specified JSON config files - returns config data as dictionary
  - selectpin(config, key, default, nullable = False) - return GPIO pin in BCM mode based on config file - returns pin number
  - initstatus(config) - set up status light based on config file - returns current state of light
- - showstatus(color, flashcount = 0) - set status light color or flash status light a number of times
- - converttz(time, from_zone, to_zone) - map datetime to specified timezone, returns modified datetime object
- - getsuntimes(config, latitude, longitude, querytime = none) - get sunrise and sunset for coming/present night from coordinates, writes two datetimes for sunset and sunrise respectively to config and returns them. querytime overrides the datetime for evaluation.
- - getlunarphase() - get current lunar phase as string, returns one of "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous", "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent"
+ - initboard(config) - set up all GPIO pins
+ - getcurrentmode() - get current setting of rotary switch used to indicate current mode
+ - enablelights(activate) - switch uv light and ringlight on or off
+ - initstatus() - set up status lights
+ - showstatus(color, flashcount = 0, flashlength = 0.2) - set colour of status light or flash light one or more times
+ - converttz(time, from_zone, to_zone) - asdjust datetime timezone
+ - getsuntimes(config, latitude, longitude, querytime = None) - get sunset and sunrise for current night
+ - getlunarphase() - get lunar phase as string
+ - initlog(name) - start logging messages
+ - calibratecamera(camera, series, calibrationfolder, config) - capture one or more series of calibration images for different camera settings (all varying from the configured settings)
 
 For more information see https://amt.hobern.net/.
 """
@@ -28,14 +33,13 @@ from amt_config import *
 import RPi.GPIO as GPIO
 import math
 import decimal
-import json
 import time
 import logging
 import os
 from picamera import PiCamera
 
 """
-Validate config value for GPIO pin and return it or the default - if nullable, can return -1 to indicate not set
+Validate config value for GPIO pin (from PROVENANCE/CAPTURE and return it or the default - if nullable, can return -1 to indicate not set
 """
 def selectpin(config, key, default, nullable = False):
     value = config.get(key, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
@@ -47,7 +51,7 @@ def selectpin(config, key, default, nullable = False):
     return default
 
 """
-Default GPIO pins using BCM notation
+Default GPIO pins using BCM notation - in case configuration is defective
 """
 gpiogreen = 25
 gpiored = 7
@@ -61,7 +65,11 @@ gpiogpssensorpower = 24
 gpiotrigger = 16
 
 """
-Modes for operation of unit
+Modes for operation of unit (managed by amt_modeselector.py)
+ - AUTOMATIC - Normal operation awaiting crontab execution of amt_timelapse.py.
+ - MANUAL - Push of momentary button will start amt_timelapse.py. Timelapse will end if user switches away from MANUAL.
+ - TRANSFER - Push of momentary button will start amt_transfer.py. Control will not return until this is complete.
+ - SHUTDOWN - Push of momentary button will trigger shutdown of unit.
 """
 AUTOMATIC = 0
 MANUAL = 1
@@ -71,34 +79,57 @@ SHUTDOWN = 3
 modenames = ["Automatic", "Manual", "Transfer", "Shutdown"]
 
 """
-Set up the pins
+Set up the pins, using values from configuration or defaults otherwise
 """
 def initboard(config):
     global gpiogreen, gpiored, gpiomanual, gpiotransfer, gpioshutdown, gpiolights, gpioenvsensordata, gpioenvsensorpower, gpiogpssensorpower, gpiotrigger
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
+
+    # Pins linked to three posts in rotary switch - each indicates a different mode to trigger via the momentary button
     gpiomanual = selectpin(config, CAPTURE_GPIOMANUALMODE, gpiomanual)
     gpiotransfer = selectpin(config, CAPTURE_GPIOTRANSFERMODE, gpiotransfer)
     gpioshutdown = selectpin(config, CAPTURE_GPIOSHUTDOWNMODE, gpioshutdown)
-    gpiogreen = selectpin(config, CAPTURE_GPIOGREEN, gpiogreen)
-    gpiored = selectpin(config, CAPTURE_GPIORED, gpiored)
-    gpiolights = selectpin(config, CAPTURE_GPIOLIGHTS, gpiolights)
-    gpioenvsensordata = selectpin(config, CAPTURE_GPIOENVDATA, gpioenvsensordata)
-    gpiotrigger = selectpin(config, CAPTURE_GPIOMODETRIGGER, gpiotrigger)
-    # Allow -1 for power pin if attached directly to voltage pin
-    gpioenvsensorpower = selectpin(config, CAPTURE_GPIOENVPOWER, gpioenvsensorpower, True)
-    gpiogpssensorpower = selectpin(config, CAPTURE_GPIOGPSPOWER, gpiogpssensorpower, True)
+
     GPIO.setup(gpiomanual, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(gpiotransfer, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.setup(gpioshutdown, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+    # Pin linked to momentary button to signal start of selected mode
+    gpiotrigger = selectpin(config, CAPTURE_GPIOMODETRIGGER, gpiotrigger)
+
+    GPIO.setup(gpiotrigger, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    # Pins for two poles of red/green status LED
+    gpiogreen = selectpin(config, CAPTURE_GPIOGREEN, gpiogreen)
+    gpiored = selectpin(config, CAPTURE_GPIORED, gpiored)
+
     GPIO.setup(gpiogreen, GPIO.OUT)
     GPIO.setup(gpiored, GPIO.OUT)
+
+    # Pin to turn on uv light and ringlight - activates transistor
+    gpiolights = selectpin(config, CAPTURE_GPIOLIGHTS, gpiolights)
+
+    GPIO.setup(gpiolights, GPIO.OUT)
+
+    # Pin to turn on GPS sensor - activates transistor, -1 indicates sensor attached directly to voltage pin
+    gpiogpssensorpower = selectpin(config, CAPTURE_GPIOGPSPOWER, gpiogpssensorpower, True)
+
+    if gpiogpssensorpower > 0:
+        logging.info("GPS sensor power pin is " + str(gpioenvsensorpower))
+        GPIO.setup(gpiogpssensorpower, GPIO.OUT)
+
+    # Pin to turn on temperature/humidity sensor, -1 indicates sensor attached directly to voltage pin
+    gpioenvsensorpower = selectpin(config, CAPTURE_GPIOENVPOWER, gpioenvsensorpower, True)
+
     if gpioenvsensorpower > 0:
         logging.info("Environmental sensor power pin is " + str(gpioenvsensorpower))
         GPIO.setup(gpioenvsensorpower, GPIO.OUT)
-    GPIO.setup(gpiolights, GPIO.OUT)
-    GPIO.setup(gpiotrigger, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+    # Pin to receive temperature/humidity readings - pigpio will control
+    gpioenvsensordata = selectpin(config, CAPTURE_GPIOENVDATA, gpioenvsensordata)
+
     logging.info("GPIO pins enabled")
 
 
@@ -268,7 +299,7 @@ def getlunarphase():
 Initialize logging
 """
 def initlog(name):
-    logging.basicConfig(filename=name, format='%(asctime)s\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+    logging.basicConfig(filename=name, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
 
 """
 Take series of calibration images for different image aspects
