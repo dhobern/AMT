@@ -32,7 +32,6 @@ import os
 import termios
 from datetime import datetime
 from dateutil import tz
-import yaml
 from amt_config import *
 import amt_util
 import logging

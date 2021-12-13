@@ -53,7 +53,6 @@ import os
 import RPi.GPIO as GPIO
 import sys
 import signal
-import json
 import pigpio
 import logging
 import socket
