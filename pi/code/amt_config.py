@@ -21,71 +21,71 @@ Input files and output files are specified in YAML and organised around a number
 
  - transfer - a dictionary providing instructions for file transfer
 
-AmtConfiguration objects and output files serve different roles', 'as follows:
+AmtConfiguration objects and output files serve different roles, as follows:
 
- - Input settings / output metadata for data collection and processing. In this case', 'the expected 
+ - Input settings / output metadata for data collection and processing. In this case, the expected 
     elements will include:
      - _configfiles - list of input configuration files
      - _errors - list of errors encountered (may be absent)
      - event - elements that will ultimately form part of a data package e.g. to GBIF
-     - provenance - a capture subsection documenting the hardware and the image capture settings', 'plus
-        additional subsections for later stages in the processing pipeline (image segmentation', 'species
-        identification', 'etc.)
+     - provenance - a capture subsection documenting the hardware and the image capture settings, plus
+        additional subsections for later stages in the processing pipeline (image segmentation, species
+        identification, etc.)
 
  - Settings for controlling transfer of data over USB from AMT hardware and updating configuration and
-    software in the AMT unit. In this case', 'the expected elements will include:
+    software in the AMT unit. In this case, the expected elements will include:
      - configfiles - list containing one entry - the name for the transfer settings YAML file
      - _errors - list of errors encountered (may be absent)
      - transfer - dictionary identifying transfer tasks to be executed
     
-An AmtConfiguration instance is typically initialised with multiple YAML files', 'each of which supplies
+An AmtConfiguration instance is typically initialised with multiple YAML files, each of which supplies
 a subset of the required elements (and may override values supplied by earlier YAML files). CONFIG_ALL 
 includes an ordered list of filenames for this purpose. The filenames in this list are intended to 
 represent the following components:
 
  - CONFIG_DEFAULTS - Standard default settings associated with the AMT software modules. These are 
-    stored in YAML to avoid hardcoding the values in code. These values may be overwritten', 'normally
+    stored in YAML to avoid hardcoding the values in code. These values may be overwritten, normally
     via CONFIG_UNIT or CONFIG_SETTINGS.
 
  - CONFIG_UNIT - Settings that relate to the current hardware unit and that are unlikely to be
-    altered between operations. This includes hardware options (GPIO pins', 'sensors', 'etc.) and a
+    altered between operations. This includes hardware options (GPIO pins, sensors, etc.) and a
     name for the unit (although this standardly defaults to the hostname).
 
- - CONFIG_SETTINGS - User-provided settings', 'including some event metadata', 'schedule settings', 'etc.
+ - CONFIG_SETTINGS - User-provided settings, including some event metadata, schedule settings, etc.
    These settings may be selected at runtime by providing an alternative file to use instead of 
    CONFIG_SETTINGS.
 
- - CONFIG_LOCATION - If a GPS sensor is enabled', 'it stores coordinates and GPS metadata in a
-   separate YAML file', 'as part of the event section.
+ - CONFIG_LOCATION - If a GPS sensor is enabled, it stores coordinates and GPS metadata in a
+   separate YAML file, as part of the event section.
 
 Usage:
 
- - AmtConfiguration(loadall = False', 'settingsfile = None) 
+ - AmtConfiguration(loadall = False, settingsfile = None) 
     Create configuration object and optionally initialise it with contents from existing 
-    YAML configuration files. If loadAll is True', 'the configuration will be initialised 
+    YAML configuration files. If loadAll is True, the configuration will be initialised 
     using a set of standardly named YAML files in a standard order (specified in CONFIG_ALL).
-    If settingsFile is specified', 'this should identify a YAML configuration file which will
+    If settingsFile is specified, this should identify a YAML configuration file which will
     either (if loadall is False) be loaded alone as the initial configuration or (if loadAll
-    is True) replace the CONFIG_SETTINGS YAML file in CONFIG_ALL. In all cases', 'the 
+    is True) replace the CONFIG_SETTINGS YAML file in CONFIG_ALL. In all cases, the 
     component YAML files are inserted using the add() method. Errors are logged inside
     the configuration object (as an _errors list). 
 
- - config.add(name', 'ignoreerrors = False)
+ - config.add(name, ignoreerrors = False)
     Add the contents of a YAML file to an existing AmtConfiguration object
 
- - config.set(key', 'value', 'section', 'subsection = None)
+ - config.set(key, value, section, subsection = None)
     Insert or update the value associated with a key in a named section and optional subsection
 
- - config.get(key', 'section', 'subsection = None)
+ - config.get(key, section, subsection = None)
     Get current value for specified key from named section and optional subsection
 
  - config.dump(filename = None)
     Write config as YAML to named file or to stdout
 
-For more information on the autonomous moth trap project', 'see https://amt.hobern.net/.
+For more information on the autonomous moth trap project, see https://amt.hobern.net/.
 """
 __author__ = "Donald Hobern"
-__copyright__ = "Copyright 2021', 'Donald Hobern"
+__copyright__ = "Copyright 2021, Donald Hobern"
 __credits__ = ["Donald Hobern"]
 __license__ = "MIT"
 __version__ = "0.9.0"
@@ -104,7 +104,7 @@ CONFIG_UNIT = "amt_unit.yaml"
 CONFIG_SETTINGS = "amt_settings.yaml"
 CONFIG_LOCATION = "amt_location.yaml"
 
-CONFIG_ALL = [ CONFIG_DEFAULTS', 'CONFIG_UNIT', 'CONFIG_SETTINGS', 'CONFIG_LOCATION ]
+CONFIG_ALL = [ CONFIG_DEFAULTS, CONFIG_UNIT, CONFIG_SETTINGS, CONFIG_LOCATION ]
 
 CONFIG_METADATA = "amt_metadata.yaml"
 
@@ -117,7 +117,7 @@ Darwin Core terms (see https://dwc.tdwg.org/terms/) and other contextual data pr
  - coordinateTimestamp: Date and time at which coordinates were captured
  - sunsetTime: local ISO time for sunset preceding data capture or for next sunset if capture begins in daytime
  - sunriseTime: local ISO time for next sunrise
- - lunarPhase: current lunar phase as text string (one of 'New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent')
+ - lunarPhase: current lunar phase as text string (one of 'New Moon, Waxing Crescent, First Quarter, Waxing Gibbous, Full Moon, Waning Gibbous, Last Quarter, Waning Crescent')
 """
 EVENT_LATITUDE = "decimalLatitude"
 EVENT_LONGITUDE = "decimalLongitude"
@@ -135,25 +135,25 @@ SECTION_PROVENANCE = "provenance"
 SUBSECTION_CAPTURE = "capture"
 
 """
-Properties relating to the capture of images (Section: provenance', 'Subsection: capture):
+Properties relating to the capture of images (Section: provenance, Subsection: capture):
  - unitname: Unique identifier for the current AMT unit - should only include characters that can be used in a filename
- - mode: The operating model', 'currently only 'TimeLapse' is supported
+ - mode: The operating model, currently only 'TimeLapse' is supported
  - processor: Document computer hardware details as part of metadata (e.g. 'Raspberry Pi Zero W')
  - camera: Document camera as part of metadata (e.g. 'Raspberry Pi HQ + 6mm Wide Angle Lens')
- - uvsource: Document attractant light details as part of metadata (e.g. 'High-power LED tube: 4 UV', '1 green', '1 blue')
+ - uvsource: Document attractant light details as part of metadata (e.g. 'High-power LED tube: 4 UV, 1 green, 1 blue')
  - illumination: Document image illumination details as part of metadata  (e.g. '10-inch ring light')
- - operatingdistance: Operating distance of the camera from the illuminated surface', 'in mm
+ - operatingdistance: Operating distance of the camera from the illuminated surface, in mm
  - imagewidth: Image width for camera resolution in pixels
  - imageheight: Image height for camera resolution in pixels
- - brightness: Image brightness for camera (0-100', 'PiCamera default is 50)
- - contrast: Image contrast for camera (-100-100', 'PiCamera default is 0)
- - saturation: Image saturation for camera (-100-100', 'PiCamera default is 0)
- - sharpness: Image sharpness for camera (-100-100', 'PiCamera default is 0)
- - quality: Image quality for camera (1-100', 'PiCamera default is 85)
- - awb_mode: Automated white balance setting for camera (one of 'off'', ''auto'', ''sunlight'', ''cloudy'', ''shade'', ''tungsten'', ''fluorescent'', ''incandescent'', ''flash'', ''horizon'', 'PiCamera default is 'auto')
+ - brightness: Image brightness for camera (0-100, PiCamera default is 50)
+ - contrast: Image contrast for camera (-100-100, PiCamera default is 0)
+ - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
+ - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
+ - quality: Image quality for camera (1-100, PiCamera default is 85)
+ - awb_mode: Automated white balance setting for camera (one of 'off', 'auto', 'sunlight', 'cloudy', 'shade', 'tungsten', 'fluorescent', 'incandescent', 'flash', 'horizon', PiCamera default is 'auto')
  - awb_gains: Automated white balance red/blue gains for camera (a tuple with two float values for the red and blue gains)
- - envsensor: Installed temperature/humidity sensor (one of 'DHT22'', ''DHT11'', ''None')
- - gpssensor: Installed GPS sensor (e.g. 'BN220'', ''None')
+ - envsensor: Installed temperature/humidity sensor (one of 'DHT22', 'DHT11', 'None')
+ - gpssensor: Installed GPS sensor (e.g. 'BN220', 'None')
  - gpiogreen: Raspberry Pi GPIO pin for green side of red/green GPIO pin in BCM mode (default 25)
  - gpiored: Raspberry Pi GPIO pin for red side of red/green GPIO pin in BCM mode (default 7)
  - gpiolights: Raspberry Pi GPIO pin for activating lights in BCM mode (default 26)
@@ -167,12 +167,12 @@ Properties relating to the capture of images (Section: provenance', 'Subsection:
  - folder: Destination folder for image sets - each run will create a subfolder containing a copy of the configuration file and all images
  - program: Image capture program executable
  - version: Image capture program version
- - trigger: Specify whether capture initiated manually or automatically', 'normally via crontab ('Manual' or 'Automatic')
- - statuslight: Specify whether to use red/green status light continually (true/false', 'defaults to false)
+ - trigger: Specify whether capture initiated manually or automatically, normally via crontab ('Manual' or 'Automatic')
+ - statuslight: Specify whether to use red/green status light continually (true/false, defaults to false)
  - initialdelay: Delay in seconds between enabling lights and DHT22 sensor and starting to capture images
  - interval: Time lapse interval between images in seconds
  - maximages: Maximum number of images to collect (-1 for unlimited)
- - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality', 'brightness', 'sharpness', 'contrast', 'saturation', 'awb_mode and awb_gains (default "")
+ - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast, saturation, awb_mode and awb_gains (default "")
 """
 CAPTURE_UNITNAME = "unitname"
 CAPTURE_MODE = "mode"
@@ -225,7 +225,7 @@ class AmtConfiguration():
     FILES = "_configurationfiles"
 
     """
-    Initialise new AmtConfiguration with any specified YAML files', 'either the
+    Initialise new AmtConfiguration with any specified YAML files, either the
     full suite of default configuration files with an option to override the
     amt_settings.yaml file with a user-specified file or else just a 
     user-specified file.
@@ -235,7 +235,7 @@ class AmtConfiguration():
     settingfile - Filename for YAML configuration file to use in place
         of CONFIG_SETTINGS file or as only file to import
     """
-    def __init__(self', 'loadAll = False', 'settingsfile = None):
+    def __init__(self, loadall = False, settingsfile = None):
         self.data = {}
         if loadall:
             for file in CONFIG_ALL:
@@ -243,16 +243,16 @@ class AmtConfiguration():
                 if settingsfile and file == CONFIG_SETTINGS:
                     file = settingsfile
                     ignoreerrors = True
-                self.add(os.path.join(CONFIGURATION_FOLDER', 'file)', 'ignoreerrors)
+                self.add(os.path.join(CONFIGURATION_FOLDER, file), ignoreerrors)
         elif settingsfile:
-            self.add(os.path.join(CONFIGURATION_FOLDER', 'settingsfile))
+            self.add(os.path.join(CONFIGURATION_FOLDER, settingsfile))
 
     """
-    Add a YAML configuration file', 'normally overwriting any existing values
+    Add a YAML configuration file, normally overwriting any existing values
     """
-    def add(self', 'name', 'ignoreerrors = False):
+    def add(self, name, ignoreerrors = False):
         # Load YAML file and get data and errors
-        data', 'errors = self.__loadconfig(name', 'ignoreerrors)
+        data, errors = self.__loadconfig(name, ignoreerrors)
 
         # Log any errors in an _errors list inside the data
         if errors:
@@ -266,7 +266,7 @@ class AmtConfiguration():
             self.data[AmtConfiguration.FILES].append(name)
 
             # Use standard method to merge data from file
-            self.data = self.__merge(self.data', 'data)
+            self.data = self.__merge(self.data, data)
 
             return True
 
@@ -276,11 +276,11 @@ class AmtConfiguration():
     Set a keyed value in a dictionary named section and optionally
     in a subsection dictionary
     """
-    def set(self', 'key', 'value', 'section', 'subsection = None):
+    def set(self, key, value, section, subsection = None):
         # Make sure section exists and is a dictionary
         if section not in self.data:
             self.data[section] = {}
-        elif not isinstance(self.data[section]', 'dict):
+        elif not isinstance(self.data[section], dict):
             logging.error('Section ' + section + ' exists but is not a dictionary')
             return False
 
@@ -289,7 +289,7 @@ class AmtConfiguration():
         if subsection:
             if subsection not in self.data[section]:
                 self.data[section][subsection] = {}
-            elif not isinstance(self.data[section][subsection]', 'dict):
+            elif not isinstance(self.data[section][subsection], dict):
                 logging.error('Subsection ' + subsection + ' exists but is not a dictionary')
                 return False
             self.data[section][subsection][key] = value
@@ -301,14 +301,12 @@ class AmtConfiguration():
     """
     Get value by key from section or section/subsection - return None if not found
     """
-    def get(self', 'key', 'section', 'subsection = None):
+    def get(self, key, section, subsection = None):
         # Does section dictionary exist?
-        if section in self.data and isinstance(self.data[section]', 'dict):
-            # If subsection specified', 'see if it exists and get value for key
+        if section in self.data and isinstance(self.data[section], dict):
+            # If subsection specified, see if it exists and get value for key
             if subsection:
-                if subsection in self.data[section] and 
-                        isinstance(self.data[section][subsection]', 'dict) and 
-                        key in self.data[section][subsection]:
+                if subsection in self.data[section] and isinstance(self.data[section][subsection], dict) and key in self.data[section][subsection]:
                     return self.data[section][subsection][key]
             elif key in self.data[section]:
                 return self.data[section][key]
@@ -319,47 +317,47 @@ class AmtConfiguration():
     """
     Dump all content as YAML in block format either to stdout or to a file
     """
-    def dump(self', 'filename = None):
-        # If no filename specified', 'just print the data
+    def dump(self, filename = None):
+        # If no filename specified, just print the data
         if not filename:
-            print(yaml.dump(self.data', 'default_flow_style = False))
+            print(yaml.dump(self.data, default_flow_style = False))
             return
 
         # Write YAML to the file
-        with open(filename', ''w'', 'newline=''', 'encoding='utf8') as file:
-            yaml.dump(self.data', 'file', 'default_flow_style = False)
+        with open(filename, 'w', newline='', encoding='utf8') as file:
+            yaml.dump(self.data, file, default_flow_style = False)
 
     """
-    Load a YAML configuration file', 'returning data and errors
+    Load a YAML configuration file, returning data and errors
         - data: parsed YAML configuration file contents
         - errors: None or list of error strings
     """
-    def __loadconfig(self', 'name', 'ignoreerrors = False):
+    def __loadconfig(self, name, ignoreerrors = False):
         if not os.path.exists(name):
             if not ignoreerrors:
-                return None', '["Configuration file not found: " + name]
+                return None, ["Configuration file not found: " + name]
             else:
-                return None', 'None
+                return None, None
         if not os.path.isfile(name):
             if not ignoreerrors:
-                return None', '["Configuration file not a file: " + name]
+                return None, ["Configuration file not a file: " + name]
             else:
-                return None', 'None
+                return None, None
 
         data = None
         errors = None
-        with open(name', '"r") as stream:
+        with open(name, "r") as stream:
             try:
                 data = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
                 errors = [ str(exc) ]
 
-        return data', 'errors
+        return data, errors
 
     """
     Merge source dictionary into target dictionary
     """
-    def __merge(self', 'target', 'source):
+    def __merge(self, target, source):
         # Loop through source keys
         for key in source:
             # Add values for missing keys (values may be lists or dictionaries)
@@ -367,14 +365,14 @@ class AmtConfiguration():
                 target[key] = source[key]
 
             # For existing keys:
-            # - if the value is a dictionary', 'recursively merge
-            # - if the value is a list', 'extend with all values
-            # - in all other cases', 'replace with new value
+            # - if the value is a dictionary, recursively merge
+            # - if the value is a list, extend with all values
+            # - in all other cases, replace with new value
             else:
                 value = source[key]
-                if isinstance(value', 'dict):
-                    target[key] = self.__merge(target[key]', 'value)
-                elif isinstance(value', 'list):
+                if isinstance(value, dict):
+                    target[key] = self.__merge(target[key], value)
+                elif isinstance(value, list):
                     target[key].extend(value)
                 else:
                     target[key] = value
@@ -385,7 +383,7 @@ class AmtConfiguration():
     """
     Create error list if not present and log errors
     """
-    def __logerrors(self', 'errors):
+    def __logerrors(self, errors):
         if errors is not None:
             if AmtConfiguration.ERRORS not in self.data:
                 self.data[AmtConfiguration.ERRORS] = []
