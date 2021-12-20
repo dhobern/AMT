@@ -212,12 +212,24 @@ CAPTURE_INTERVAL = "interval"
 CAPTURE_MAXIMAGES = "maximages"
 CAPTURE_CALIBRATION = "calibration"
 
+"""
+Properties relating to the transfer of files between the unit and a USB drive (Section: transfer):
+ - transferimages (true/false) - copy all outstanding image folders to the USB drive (i.e. all files not already transferred)
+ - deleteontransfer (true/false) - if transfer to USB drive is fully successful, remove all image folders from unit
+ - deleteonetime (true/false) - remove all images from unit and then edit configuration file to disable this property on future runs
+ - deleteall (true/false) - remove all image folders from unit regardless of transfer success
+ - transfersettings (true/false) - copy amt_settings.yaml file from USB drive to unit
+ - transfersoftware (true/false) - copy python scripts file from USB drive to unit
+
+See amt_transfer.py for more detail
+"""
 SECTION_TRANSFER = "transfer"
 TRANSFER_IMAGES = "transferimages"
 TRANSFER_DELETEONTRANSFER = "deleteontransfer"
 TRANSFER_DELETEONETIME = "deleteonetime"
 TRANSFER_DELETEALL = "deleteall"
 TRANSFER_SETTINGS = "transfersettings"
+TRANSFER_SOFTWARE = "transfersoftware"
 
 class AmtConfiguration():
 
@@ -235,7 +247,7 @@ class AmtConfiguration():
     settingfile - Filename for YAML configuration file to use in place
         of CONFIG_SETTINGS file or as only file to import
     """
-    def __init__(self, loadall = False, settingsfile = None):
+    def __init__(self, loadall = False, settingsfile = None, listconfigurationfiles = True):
         self.data = {}
         if loadall:
             for file in CONFIG_ALL:
@@ -243,14 +255,14 @@ class AmtConfiguration():
                 if settingsfile and file == CONFIG_SETTINGS:
                     file = settingsfile
                     ignoreerrors = True
-                self.add(os.path.join(CONFIGURATION_FOLDER, file), ignoreerrors)
+                self.add(os.path.join(CONFIGURATION_FOLDER, file), ignoreerrors, listconfigurationfiles)
         elif settingsfile:
-            self.add(os.path.join(CONFIGURATION_FOLDER, settingsfile))
+            self.add(os.path.join(CONFIGURATION_FOLDER, settingsfile), False, listconfigurationfiles)
 
     """
     Add a YAML configuration file, normally overwriting any existing values
     """
-    def add(self, name, ignoreerrors = False):
+    def add(self, name, ignoreerrors = False, listconfigurationfiles = True):
         # Load YAML file and get data and errors
         data, errors = self.__loadconfig(name, ignoreerrors)
 
@@ -261,9 +273,10 @@ class AmtConfiguration():
         # Insert/update data with values from file
         if data:
             # Record name of file in _configfiles list in data
-            if AmtConfiguration.FILES not in self.data:
-                self.data[AmtConfiguration.FILES] = []    
-            self.data[AmtConfiguration.FILES].append(name)
+            if listconfigurationfiles:
+                if AmtConfiguration.FILES not in self.data:
+                    self.data[AmtConfiguration.FILES] = []    
+                self.data[AmtConfiguration.FILES].append(name)
 
             # Use standard method to merge data from file
             self.data = self.__merge(self.data, data)

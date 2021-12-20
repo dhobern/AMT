@@ -42,6 +42,15 @@ def signal_handler(sig, frame):
     logging.info("Caught signal - terminating")
     sys.exit(0)
 
+def loadconfiguration(argv):
+    # Optionally override default runtime configuration file
+    if len(argv) > 1:
+        logging.info("Config file: " + argv[1])
+        return AmtConfiguration(True, argv[1])
+    else:
+        return AmtConfiguration(True)
+
+
 # Handle errors gracefully
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -50,13 +59,7 @@ logging.info("##########################")
 logging.info("amt_modeselector.py BEGIN")
 
 # Optionally override default runtime configuration file
-if len(sys.argv) > 1:
-    logging.info("Config file: " + sys.argv[1])
-    config = AmtConfiguration(True, sys.argv[1])
-else:
-    config = AmtConfiguration(True)
-
-config.dump()
+config = loadconfiguration(sys.argv)
 
 # If GPS present, spawn thread to get coordinates
 if config.get(CAPTURE_GPSSENSOR, SECTION_PROVENANCE, SUBSECTION_CAPTURE) is not None:
@@ -95,9 +98,10 @@ while listening:
     elif mode == TRANSFER:
         showstatus('red')
         try:
-            transferfiles()
+            if transferfiles(config):
+                config = loadconfiguration(sys.argv)
         except Exception as exc:
-            logging.error("Caught exception in transferfiles")
+            logging.exception("Caught exception in transferfiles")
         showstatus(originalstatus)
     elif mode == SHUTDOWN:
         showstatus('red', 3)

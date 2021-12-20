@@ -1,0 +1,46 @@
+2021-12-13 19:48:09 root         INFO     AMT Transfer
+2021-12-13 19:48:09 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-13 19:48:09 root         INFO     Exporting images
+2021-12-13 19:48:09 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-13 19:50:30 root         INFO     Copied /home/pi/AMT/20211212-135040
+2021-12-13 20:02:43 root         INFO     Copied /home/pi/AMT/20211212-212804
+2021-12-13 20:09:42 root         INFO     AMT Transfer
+2021-12-13 20:09:42 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-13 20:09:42 root         INFO     Exporting images
+2021-12-13 20:09:42 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-13 20:13:51 root         INFO     AMT Transfer
+2021-12-13 20:13:51 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-13 20:13:51 root         INFO     Exporting images
+2021-12-13 20:13:51 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-13 20:14:37 root         INFO     AMT Transfer
+2021-12-13 20:14:37 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-13 20:14:37 root         INFO     Exporting images
+2021-12-13 20:14:37 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-13 20:14:37 root         INFO     /home/pi/AMT/20211212-135040 already transferred - skipping
+2021-12-13 20:14:37 root         INFO     Copied /home/pi/AMT/20211212-135040
+2021-12-13 20:14:37 root         INFO     /home/pi/AMT/20211212-212804 already transferred - skipping
+2021-12-13 20:14:37 root         INFO     Copied /home/pi/AMT/20211212-212804
+2021-12-13 20:14:37 root         INFO     Delete on transfer enabled - deleting images
+2021-12-13 20:14:37 root         INFO     Deleting /home/pi/AMT/20211212-135040
+2021-12-13 20:14:38 root         INFO     Delete on transfer enabled - deleting images
+2021-12-13 20:14:38 root         INFO     Deleting /home/pi/AMT/20211212-212804
+2021-12-13 20:14:38 root         INFO     Importing configuration
+2021-12-13 20:15:19 root         INFO     AMT Transfer
+2021-12-13 20:15:19 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-13 20:15:19 root         INFO     Exporting images
+2021-12-13 20:15:19 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-13 20:15:19 root         INFO     Importing configuration
+2021-12-13 20:15:42 root         INFO     AMT Transfer
+2021-12-13 20:15:42 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-13 20:15:42 root         INFO     Exporting images
+2021-12-13 20:15:42 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-13 20:15:42 root         INFO     Importing configuration
+2021-12-13 20:15:42 root         INFO     Copied amt_settings.yaml to amt_settings20211213-201542.yaml
+2021-12-13 20:15:42 root         INFO     Configuration updated
+2021-12-20 18:15:36 root         INFO     AMT Transfer
+2021-12-20 18:15:36 root         INFO     Loaded config file: /media/usb/AMT/amt_transfer.yaml
+2021-12-20 18:15:37 root         INFO     Exporting images
+2021-12-20 18:15:37 root         INFO     Copying from /home/pi/AMT/ to /media/usb/AMT/captures/AMT-alpha
+2021-12-20 18:16:01 root         INFO     Copied /home/pi/AMT/20211213-212804
+2021-12-20 18:16:01 root         INFO     Delete on transfer enabled - deleting images
+2021-12-20 18:16:02 root         INFO     Deleting /home/pi/AMT/20211213-212804
