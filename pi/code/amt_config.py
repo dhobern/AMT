@@ -150,6 +150,7 @@ Properties relating to the capture of images (Section: provenance, Subsection: c
  - saturation: Image saturation for camera (-100-100, PiCamera default is 0)
  - sharpness: Image sharpness for camera (-100-100, PiCamera default is 0)
  - quality: Image quality for camera (1-100, PiCamera default is 85)
+ - meter_mode: Meter mode for camera (one of 'average', 'spot', 'backlit', 'matrix', PiCamera default is 'average')
  - awb_mode: Automated white balance setting for camera (one of 'off', 'auto', 'sunlight', 'cloudy', 'shade', 'tungsten', 'fluorescent', 'incandescent', 'flash', 'horizon', PiCamera default is 'auto')
  - awb_gains: Automated white balance red/blue gains for camera (a tuple with two float values for the red and blue gains)
  - envsensor: Installed temperature/humidity sensor (one of 'DHT22', 'DHT11', 'None')
@@ -188,6 +189,7 @@ CAPTURE_CONTRAST = "contrast"
 CAPTURE_SATURATION = "saturation"
 CAPTURE_SHARPNESS = "sharpness"
 CAPTURE_QUALITY = "quality"
+CAPTURE_METERMODE = "meter_mode"
 CAPTURE_AWBMODE = "awb_mode"
 CAPTURE_AWBGAINS = "awb_gains"
 CAPTURE_ENVSENSOR = "envsensor"

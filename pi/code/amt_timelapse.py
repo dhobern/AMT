@@ -161,6 +161,9 @@ def initcamera(config):
     awb_mode = config.get(CAPTURE_AWBMODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if awb_mode is not None:
         camera.awb_mode = awb_mode
+    meter_mode = config.get(CAPTURE_METERMODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if meter_mode is not None:
+        camera.meter_mode = meter_mode
     awb_gains = config.get(CAPTURE_AWBGAINS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if awb_gains is not None and isinstance(awb_gains, list) and len(awb_gains) == 2:
         camera.awb_gains = awb_gains
