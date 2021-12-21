@@ -171,12 +171,13 @@ def transferfiles(config):
         transfersoftware = xferconfig.get(TRANSFER_SOFTWARE, SECTION_TRANSFER)
 
     if deleteonetime:
+        logging.info("deleteonetime is true - will delete all images")
         xferconfig.set(TRANSFER_DELETEONETIME, False, SECTION_TRANSFER)
         xferconfig.dump(xferconfigname)
-        deleteall = True
+        logging.info("deleteonetime reset to false in " + xferconfigname)
 
     if transferimages:
-        logging.info("Exporting images")
+        logging.info("transferimage is true - exporting images")
         capturesfolder = os.path.join(amtfolder, capturetargetname)
         if not os.path.isdir(capturesfolder):
             os.mkdir(capturesfolder)
@@ -202,22 +203,31 @@ def transferfiles(config):
                     success = False
                     logging.error("Copy of " + capturesubfolder + " failed")
             
-            if deleteall or (success and deleteontransfer):
+            if deleteall:
+                logging.info("deleteall is true - deleting all images")
+            elif deleteonetime:
+                logging.info("deleteonetime is true - deleting all images")
+                deleteall = True
+            elif deleteontransfer:
+                if success:
+                    logging.info("deleteontransfer is true and transfer succeeded - deleting all images")
+                    deleteall = True
+                else:
+                    logging.info("deleteontransfer is true but transfer failed - skipping deletion")
+
+            if deleteall:
+                logging.info("Deleting from " + capturesource)
                 for c in os.listdir(capturesource):
                     try:
-                        logging.info("Delete on transfer enabled - deleting images")
                         capturesubfolder = os.path.join(capturesource, c)
-                        logging.info("Deleting " + capturesubfolder)
                         subprocess.call(['rm', '-fr', capturesubfolder], shell=False)
+                        logging.info("Deleted " + capturesubfolder)
                     except Error as err:
-                        #errors.extend(err.args[0])
                         logging.error("Error removing files " + str(err.args[0]))
                         break
 
-    logging.getLogger().removeHandler(loghandler)
-
     if transfersettings:
-        logging.info("Importing configuration")
+        logging.info("transferimage is true - importing configuration")
 
         importconfigurationfile = os.path.join(amtfolder, 'amt_settings.yaml')
         unitconfigurationfile = os.path.join('/home/pi', 'amt_settings.yaml')
@@ -232,7 +242,8 @@ def transferfiles(config):
             logging.info("Configuration updated")
 
     if transfersoftware:
-        logging.info("Updating software")
+        logging.info("transferimage is true - updating software")
+
         for f in os.listdir(amtfolder):
             if f.startswith('amt_') and f.endswith(".py") and f not in ['amt_transfer.py', 'amt_modeselector.py']:
                 pythonfile = os.path.join('/home/pi', f)
@@ -245,7 +256,9 @@ def transferfiles(config):
         subprocess.call(['sudo', 'eject', '/media/usb'], shell=False)
     except Error:
         logging.exception("Could not unmount drive")
-    
+
+    logging.getLogger().removeHandler(loghandler)    
+
     return configurationupdated
 
 
