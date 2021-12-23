@@ -13,6 +13,7 @@ amt_util - Utility functions to support autonomous moth trap
  - getsuntimes(config, latitude, longitude, querytime = None) - get sunset and sunrise for current night
  - getlunarphase() - get lunar phase as string
  - initlog(name) - start logging messages
+ - rotatelogs(name, count = 5) - rotate log files
  - calibratecamera(camera, series, calibrationfolder, config) - capture one or more series of calibration images for different camera settings (all varying from the configured settings)
 
 For more information see https://amt.hobern.net/.
@@ -35,6 +36,7 @@ import math
 import decimal
 import time
 import logging
+import subprocess
 import os
 from picamera import PiCamera
 
@@ -300,6 +302,32 @@ Initialize logging
 """
 def initlog(name):
     logging.basicConfig(filename=name, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S', level = logging.INFO)
+
+"""
+Rotate logs, keeping a maximum of 5 earlier logs, each named <filename>_backup_<N>.log.
+"""
+def rotatelogs(name, count = 5):
+    logging.info("Rotating logs")
+
+    handlers = logging.getLogger().handlers[:]
+    for handler in handlers:
+        handler.close()
+        logging.getLogger().removeHandler(handler)
+
+    prevbackupname = name + ".backup_" + str(count)
+    for i in range(count - 1):
+        backupname = name + ".backup_" + str(4 - i)
+        if os.path.exists(backupname):
+            subprocess.call(['cp', backupname, prevbackupname], shell=False)
+        prevbackupname = backupname
+
+    if os.path.exists(name):
+        subprocess.call(['cp', name, prevbackupname], shell=False)
+        subprocess.call(['rm', name], shell=False)
+        
+    initlog(name)
+
+    logging.info("Rotated logs")
 
 """
 Take series of calibration images for different image aspects

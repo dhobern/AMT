@@ -98,8 +98,11 @@ while listening:
     elif mode == TRANSFER:
         showstatus('red')
         try:
+            # If transferfiles returns true, the configuration may have changed.
             if transferfiles(config):
                 config = loadconfiguration(sys.argv)
+            rotatelogs("/home/pi/amt_modeselector.log")
+            subprocess.call(['sudo', 'umount', '--force', '/media/usb'], shell=False)
         except Exception as exc:
             logging.exception("Caught exception in transferfiles")
         showstatus(originalstatus)

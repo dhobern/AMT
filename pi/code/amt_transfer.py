@@ -102,27 +102,14 @@ def filesmatch(folderA, folderB):
     return True
 
 
-def savefilebackup(amtfolder, timestamp, file):
+def savefilebackup(folder, file):
     if os.path.isfile(file):
-        backupsfolder = os.path.join(amtfolder, 'backups')
+        backupsfolder = os.path.join(folder, 'backups')
         if not os.path.isdir(backupsfolder):
             os.mkdir(backupsfolder)        
-        timestampfolder = os.path.join(backupsfolder, timestamp)
-        if not os.path.isdir(timestampfolder):
-            os.mkdir(timestampfolder)        
-
-        parts = file.split(".")
-        if len(parts) > 1:
-            suffix = '-' + timestamp + '.' + parts.pop()
-            newfile = ".".join(parts) + suffix
-        else:
-            newfile = file + "-" + timestamp
-        
-        subprocess.call(['cp', file, newfile])
-        logging.info("Copied " + file + " to " + newfile)
 
         parts = file.split('/')
-        newfile = os.path.join(timestampfolder, parts.pop())
+        newfile = os.path.join(backupsfolder, parts.pop())
 
         subprocess.call(['cp', file, newfile])
         logging.info("Copied " + file + " to " + newfile)
@@ -137,11 +124,17 @@ def transferfiles(config):
         unitname = socket.gethostname()
     capturesource = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     xferconfig = None
+
     amtfolder = os.path.join(basefolder, "AMT")
     if not os.path.exists(amtfolder):
         os.mkdir(amtfolder)
 
-    loghandler = logging.FileHandler(os.path.join(amtfolder, 'amt_transfer.log'))
+    timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
+    timestampfolder = os.path.join(amtfolder, timestamp)
+    if not os.path.exists(timestampfolder):
+        os.mkdir(timestampfolder)
+
+    loghandler = logging.FileHandler(os.path.join(timestampfolder, 'amt_transfer.log'))
     formatter = logging.Formatter(unitname + ': %(asctime)s - %(name)s - %(levelname)s - %(message)s')
     loghandler.setFormatter(formatter)
     logging.getLogger().addHandler(loghandler)
@@ -159,8 +152,6 @@ def transferfiles(config):
     deleteall = False
     transfersettings = False
     transfersoftware = False
-
-    timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
 
     if xferconfig:
         transferimages = xferconfig.get(TRANSFER_IMAGES, SECTION_TRANSFER)
@@ -234,7 +225,7 @@ def transferfiles(config):
         if not os.path.isfile(importconfigurationfile):
             logging.error("No configuration file found at " + importconfigurationfile)
         else:
-            savefilebackup(amtfolder, timestamp, unitconfigurationfile)
+            savefilebackup(timestampfolder, unitconfigurationfile)
             subprocess.call(['cp', importconfigurationfile, unitconfigurationfile])
 
             configurationupdated = True
@@ -248,14 +239,17 @@ def transferfiles(config):
             if f.startswith('amt_') and f.endswith(".py") and f not in ['amt_transfer.py', 'amt_modeselector.py']:
                 pythonfile = os.path.join('/home/pi', f)
                 newpythonfile = os.path.join(amtfolder, f)
-                savefilebackup(amtfolder, timestamp, pythonfile)
+                savefilebackup(timestampfolder, pythonfile)
                 subprocess.call(['cp', newpythonfile, pythonfile])
                 logging.info("Software updated - " + f)
 
-    try:    
-        subprocess.call(['sudo', 'eject', '/media/usb'], shell=False)
-    except Error:
-        logging.exception("Could not unmount drive")
+    logging.info("Copying logfiles")
+    for f in os.listdir('/home/pi'):
+        if f.startswith('amt_') and f.endswith(".log"):
+            logfile = os.path.join('/home/pi', f)
+            savefilebackup(timestampfolder, logfile)
+            if f != "amt_modeselector.log":
+                os.remove(logfile)
 
     logging.getLogger().removeHandler(loghandler)    
 
@@ -267,3 +261,8 @@ if __name__=="__main__":
     initlog("/home/pi/amt_transfer.log")
     config = AmtConfiguration(True)
     transferfiles(config)
+
+    try:    
+        subprocess.call(['sudo', 'umount', '--force', '/media/usb'], shell=False)
+    except Error:
+        logging.exception("Could not unmount drive")
