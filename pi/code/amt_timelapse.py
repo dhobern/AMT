@@ -56,6 +56,7 @@ import signal
 import pigpio
 import logging
 import socket
+import shutil
 
 # Current mode
 manual = False
@@ -129,7 +130,7 @@ def enablesensor(activate):
                     dht = DHT.sensor(pi, gpioenvsensordata, DHT.DHT11)
                 logging.info("Sensor enabled")
             except:
-                logging.error("Could not initialise sensor")
+                logging.exception("Could not initialise sensor")
                 pi.stop()
                 pi = None
                 dht = None
@@ -171,8 +172,11 @@ def initcamera(config):
     logging.info("Camera initialised")
     return camera
 
-# Create target folder for this run and make a copy of the current configfile to allow future interpretation
-def initfolder(config):
+"""
+Create target folder for this run and make a copy of the current configfile to allow future interpretation - if specified,
+also initialise a folder on USB drive
+"""
+def initfolders(config):
     folder = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if not os.path.isdir(folder):
         os.mkdir(folder)
@@ -181,7 +185,32 @@ def initfolder(config):
     os.mkdir(foldername)
     config.dump(os.path.join(foldername, CONFIG_METADATA))
     logging.info("Output folder created: " + foldername)
-    return foldername
+
+    usbfolder = '/media/usb/AMT/'
+    transferfoldername = None
+    transferimages = config.get(CAPTURE_TRANSFERIMAGES, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    if (transferimages):
+        logging.info("Transfer images is true")
+        if os.path.exists(usbfolder):
+            logging.info("USB device present")
+            xferconfigname = os.path.join(usbfolder, 'amt_transfer.yaml')
+            if os.path.exists(xferconfigname) and os.path.isfile(xferconfigname):
+                xferconfig = AmtConfiguration(False, xferconfigname, False)
+                logging.info("Loaded transfer configuration file: " + xferconfigname)
+            if not xferconfig or xferconfig.get(TRANSFER_IMAGES, SECTION_TRANSFER):
+                unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+                transferfoldername = os.path.join(usbfolder, 'captures', unitname, timestamp)
+                if not os.path.exists(transferfoldername):
+                    unitfolder = os.path.join(usbfolder, 'captures', unitname)
+                    if not os.path.exists(unitfolder):
+                        capturesfolder = os.path.join(usbfolder, 'captures')
+                        if not os.path.exists(capturesfolder):
+                            os.mkdir(capturesfolder)
+                        os.mkdir(unitfolder)
+                    os.mkdir(transferfoldername)
+                    config.dump(os.path.join(transferfoldername, CONFIG_METADATA))
+
+    return foldername, transferfoldername
 
 # Return string with temperature and humidity encoded or empty string otherwise
 def readsensor():
@@ -236,14 +265,14 @@ def timelapse(manuallytriggered = False):
     labeltext = '-{}-{}-{}'.format(config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE), config.get(CAPTURE_MODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE), str(interval))
     logging.info("Quality: " + str(jpegquality))
     initoperation(config)
-
+    
     # If mode is manual, the system should already be running. If this is a main execution, the script has been triggered by cron or from a shell - do not operate while manual is set.
     if not modestillvalid(manual):
         logging.info("Execution mode does not match current user setting - terminate immediately")
         exit(0)
 
     addmetadata(config)
-    foldername = initfolder(config)
+    foldername, transferfoldername = initfolders(config)
     enablelights(True)
     if envsensor is not None:
         enablesensor(True)
@@ -271,20 +300,46 @@ def timelapse(manuallytriggered = False):
         else: 
             logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
+        # End if mode is switched or last image is captured for automatic mode
         while modestillvalid(manual) and (manual or (not manual and imagecount > 0)):
+            # If requested, show status light
             if statuslight:
                 showstatus("red")
-            camera.capture(os.path.join(foldername, datetime.today().strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'), format = "jpeg", quality = jpegquality)
+            
+            # Capture image with metadata in filename
+            imagetimestamp = datetime.today()
+            imagename = imagetimestamp.strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'
+            imagepath = os.path.join(foldername, imagename)
+            camera.capture(imagepath, format = "jpeg", quality = jpegquality)
+
+            # If a USB capture folder is present, copy the image there
+            if transferfoldername and os.path.exists(transferfoldername):
+                try:
+                    shutil.copyfile(imagepath, os.path.join(transferfoldername, imagename))
+                except:
+                    logging.exception("Failed to copy image to USB")
+            
+            # Reset status light
             if statuslight:
                 showstatus("green")
-            time.sleep(interval)
+
+            # Image capture and copy will have used some of the interval time. Adjust how long to sleep.
+            endtimestamp = datetime.today()
+            elapsed = (endtimestamp - imagetimestamp).total_seconds()
+            sleepinterval = interval - elapsed
+            if sleepinterval > 0:
+                time.sleep(sleepinterval)
+
             imagecount -= 1
 
         logging.info("Time series complete")
 
         calibration = config.get(CAPTURE_CALIBRATION, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
         if calibration is not None:
-            calibratecamera(camera, calibration.split(','), os.path.join(foldername, "calibration"), config)
+            calibrationfolder = os.path.join(foldername, "calibration")
+            calibratecamera(camera, calibration.split(','), calibrationfolder, config)
+            if transferfoldername:
+                subprocess.call(['cp', '-R', calibrationfolder, transferfoldername], shell=False)
 
         camera.close()
 

@@ -92,7 +92,7 @@ def filesmatch(folderA, folderB):
         if os.path.isdir(pathA):
             if not os.path.isdir(pathB):
                 return False
-            if filesdiffer(pathA, pathB):
+            if filesmatch(pathA, pathB):
                 return False
         filesB.remove(f)
 
@@ -119,6 +119,8 @@ def savefilebackup(folder, file):
 def transferfiles(config):
     configurationupdated = False
 
+    # Check whether USB drive is attached
+
     unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if unitname is None:
         unitname = socket.gethostname()
@@ -127,7 +129,11 @@ def transferfiles(config):
 
     amtfolder = os.path.join(basefolder, "AMT")
     if not os.path.exists(amtfolder):
-        os.mkdir(amtfolder)
+        try:
+            os.mkdir(amtfolder)
+        except:
+            logging.error("USB drive not present - cancelling transfer")
+            return False
 
     timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
     timestampfolder = os.path.join(amtfolder, timestamp)
@@ -188,9 +194,8 @@ def transferfiles(config):
                         logging.info("Copied " + capturesubfolder)
                     else:
                         logging.info("Folder already copied: " + capturesubfolder + " - skipping")
-                except Error as err:
-                    #errors.extend(err.args[0])
-                    logging.error("Error copying files " + str(err.args[0]))
+                except:
+                    logging.exception("Error copying files")
                     success = False
                     logging.error("Copy of " + capturesubfolder + " failed")
             
@@ -218,19 +223,28 @@ def transferfiles(config):
                         break
 
     if transfersettings:
-        logging.info("transferimage is true - importing configuration")
+        logging.info("transferimage is true - importing configuration files")
 
-        importconfigurationfile = os.path.join(amtfolder, 'amt_settings.yaml')
-        unitconfigurationfile = os.path.join('/home/pi', 'amt_settings.yaml')
-        if not os.path.isfile(importconfigurationfile):
-            logging.error("No configuration file found at " + importconfigurationfile)
-        else:
-            savefilebackup(timestampfolder, unitconfigurationfile)
-            subprocess.call(['cp', importconfigurationfile, unitconfigurationfile])
+        # Transfer any files named amt_settings.yaml or amt_settings.xxx.yaml. The first
+        # of these is the default for overriding settings. Any other settings files with
+        # modifiers in their names can be used to vary behaviour between automated (i.e.
+        # crontab) runs.
+        for f in os.listdir(amtfolder):
+            if f.startswith('amt_settings.') and f.endswith(".yaml"):
+                logging.info("Importing " + f)
+                importconfigurationfile = os.path.join(amtfolder, f)
+                localconfigurationfile = os.path.join('/home/pi', f)
 
-            configurationupdated = True
+                savefilebackup(timestampfolder, localconfigurationfile)
+                subprocess.call(['cp', importconfigurationfile, localconfigurationfile])
 
+                configurationupdated = True
+            
+        if configurationupdated:
             logging.info("Configuration updated")
+        else:
+            logging.error("No configuration files found in " + amtfolder)
+
 
     if transfersoftware:
         logging.info("transferimage is true - updating software")

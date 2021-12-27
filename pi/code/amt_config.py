@@ -174,6 +174,7 @@ Properties relating to the capture of images (Section: provenance, Subsection: c
  - interval: Time lapse interval between images in seconds
  - maximages: Maximum number of images to collect (-1 for unlimited)
  - calibration: String containing a comma-delimited list (no spaces) of properties for collecting series of calibration images - any combination of quality, brightness, sharpness, contrast, saturation, awb_mode and awb_gains (default "")
+ - transferimages: Specify whether to try to transfer images to USB as they are captured (true/false, defaults to false)
 """
 CAPTURE_UNITNAME = "unitname"
 CAPTURE_MODE = "mode"
@@ -213,6 +214,7 @@ CAPTURE_INITIALDELAY = "initialdelay"
 CAPTURE_INTERVAL = "interval"
 CAPTURE_MAXIMAGES = "maximages"
 CAPTURE_CALIBRATION = "calibration"
+CAPTURE_TRANSFERIMAGES = "transferimages"
 
 """
 Properties relating to the transfer of files between the unit and a USB drive (Section: transfer):

@@ -19,11 +19,12 @@ provenance:
     gpssensor: none
     imagewidth: 4056
     imageheight: 3040
-    brightness: 62
-    contrast: 30
+    brightness: 55
+    contrast: 25
     saturation: 20
     sharpness: 50
-    quality: 20
+    quality: 16
+    transferimages: true
     awb_mode: 'off'
     awb_gains: 
     - 2.8
