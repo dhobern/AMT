@@ -54,6 +54,7 @@ import RPi.GPIO as GPIO
 import sys
 import signal
 import pigpio
+import DHT
 import logging
 import socket
 import shutil
