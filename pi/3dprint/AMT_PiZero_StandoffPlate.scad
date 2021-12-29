@@ -1,7 +1,7 @@
 screwx = 115;
 screwy = 182;
 
-margin = 5;
+margin = 2;
 
 screwdiam = 3.1;
 
@@ -20,12 +20,12 @@ $fn = 360;
 
 difference() {
     union() {
-        cube([x, screwdiam + 6, 0.8]);
-        cube([screwdiam + 6, y, 0.8]);
+        cube([x, screwdiam + 2 * margin, 0.8]);
+        cube([screwdiam + 2 * margin, y, 0.8]);
     }
     
-    for (i = [3 + screwdiam / 2, x - 3 - screwdiam / 2]) {
-        for (j = [3 + screwdiam / 2, y - 3 - screwdiam / 2]) {
+    for (i = [margin + screwdiam / 2, x - margin - screwdiam / 2]) {
+        for (j = [margin + screwdiam / 2, y - margin - screwdiam / 2]) {
             translate([i, j, -fudge]) {
                 cylinder(d = screwdiam, h = 1);
             }
