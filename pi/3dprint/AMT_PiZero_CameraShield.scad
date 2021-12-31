@@ -1,4 +1,4 @@
-lensdiam = 30.5;
+lensdiam = 31;
 fieldangle = 45;
 outerangle = 40;
 shielddepth = 60;
@@ -18,10 +18,18 @@ fudge = 0.1;
 fudge2 = 0.2;
 fudge3 = 0.3;
 
+$fn = 360;
+
 difference() {
     union() {
         difference() {
-            cylinder(d = diam, h = shielddepth, center = false, $fn=360);
+            union() {
+                cylinder(d = diam, h = shielddepth, center = false, $fn=360);
+                translate([0, diam / 4 + thickness, 17.5]) {
+                    cylinder(d = diam / 2, h = shielddepth - 15);
+                }
+            }
+
             translate([0, 0, thickness]) {
                 cylinder(d = diam - 2 * thickness, h = shielddepth, center = false, $fn=360);
             }
@@ -41,27 +49,29 @@ difference() {
     }
     for (i = [-lensdiam / 2 - 5, lensdiam / 2 + 5]) {
         translate([i, 0, -fudge]) {
-            cylinder(d = screwdiam, h = screwdepth + fudge, center = false, $fn = 360);
+            cylinder(d = screwdiam, h = screwdepth + fudge, center = false);
         }
         translate([0, i, -fudge]) {
-            cylinder(d = screwdiam, h = screwdepth + fudge, center = false, $fn = 360);
+            cylinder(d = screwdiam, h = screwdepth + fudge, center = false);
         }
     }
 }
 
+/*
 translate([diam + 5, 0, 0]) {
     difference() {
-        cylinder(d = lensdiam + 20, h = thickness, center = false, $fn = 360);
+        cylinder(d = lensdiam + 20, h = thickness, center = false);
         translate([0, 0, -fudge]) {
-            cylinder(d = lensdiam, h = thickness + fudge2, center = false, $fn = 360);
+            cylinder(d = lensdiam, h = thickness + fudge2, center = false);
         }
         for (i = [-lensdiam / 2 - 5, lensdiam / 2 + 5]) {
             translate([i, 0, -fudge]) {
-                cylinder(d = screwdiam, h = thickness + fudge2, center = false, $fn = 360);
+                cylinder(d = screwdiam, h = thickness + fudge2, center = false);
             }
             translate([0, i, -fudge]) {
-                cylinder(d = screwdiam, h = thickness + fudge2, center = false, $fn = 360);
+                cylinder(d = screwdiam, h = thickness + fudge2, center = false);
             }
         }
     }
 }
+*/
