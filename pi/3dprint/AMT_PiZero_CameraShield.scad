@@ -25,8 +25,8 @@ difference() {
         difference() {
             union() {
                 cylinder(d = diam, h = shielddepth, center = false, $fn=360);
-                translate([0, diam / 4 + thickness, 17.5]) {
-                    cylinder(d = diam / 2, h = shielddepth - 15);
+                translate([0, diam / 4, 17.5]) {
+                    cylinder(d1 = diam / 2, d2 = diam / 2 + 16, h = shielddepth - 15);
                 }
             }
 
