@@ -24,28 +24,28 @@ difference() {
     union() {
         difference() {
             union() {
-                cylinder(d = diam, h = shielddepth, center = false, $fn=360);
+                cylinder(d = diam, h = shielddepth, center = false);
                 translate([0, diam / 4, 17.5]) {
                     cylinder(d1 = diam / 2, d2 = diam / 2 + 16, h = shielddepth - 15);
                 }
             }
 
             translate([0, 0, thickness]) {
-                cylinder(d = diam - 2 * thickness, h = shielddepth, center = false, $fn=360);
+                cylinder(d = diam - 2 * thickness, h = shielddepth, center = false);
             }
             translate([0, 0, -fudge]) {
-                cylinder(d1 = lensdiam, h = thickness + fudge2, center = false, $fn=360);
+                cylinder(d1 = lensdiam, h = thickness + fudge2, center = false);
             }
             translate([-diam/2 - fudge, -diam/2 - fudge, 0]) rotate([angle, 0, 0]) {
                 cube([diam + fudge2, diam * 2 + fudge2, outerdiam + fudge2]);  
             }
         }
 
-        cylinder(d = diam, h = thickness, center = false, $fn=360);
+        cylinder(d = diam, h = thickness, center = false);
     }
     
     translate([0, 0, -fudge]) {
-        cylinder(d = lensdiam, h = thickness + fudge2, center = false, $fn=360);
+        cylinder(d = lensdiam, h = thickness + fudge2, center = false);
     }
     for (i = [-lensdiam / 2 - 5, lensdiam / 2 + 5]) {
         translate([i, 0, -fudge]) {
