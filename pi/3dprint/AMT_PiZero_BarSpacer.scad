@@ -37,15 +37,42 @@ fudge2 = 0.2;
 
 $fn = 360;
 
+
+module bcube(x=10, y=10, z=10, bt=2, bb=0, bs=2) {
+   f = 0.1;
+    difference() {
+        cube([x, y, z]);
+        translate([0,0,-f]) linear_extrude(height=z+2*f) {
+            polygon([[-f,-f],[bs+f,-f],[-f,bs+f]]);
+            polygon([[x-bs-f,-f],[x+f,-f],[x+f,bs+f]]);
+            polygon([[x-bs-f,y+f],[x+f,y+f],[x+f,y-bs-f]]);
+            polygon([[-f,y+f],[bs+f,y+f],[-f,y-bs-f]]);
+        }
+        rotate([0,90,0]) translate([0,0,-f]) linear_extrude(height=x+2*f) {
+            polygon([[f,-f],[-bb-f,-f],[-f,bb+f]]);
+            polygon([[-z-f,-f],[-z-f,bt+f],[-z+bt+f,-f]]);
+            polygon([[f,y+f],[-bb-f,y+f],[f,y-bb-f]]);
+            polygon([[-z-f,y+f],[-z-f,y-bt-f],[-z+bt+f,y+f]]);
+        }
+        rotate([-90,0,0]) translate([0,0,-f]) linear_extrude(height=y+2*f) {
+            polygon([[-f,f],[bb+f,f],[-f,-bb-f]]);
+            polygon([[x-bb-f,f],[x+f,f],[x+f,-bb-f]]);
+            polygon([[-f,-z-f],[bt+f,-z-f],[-f,-z+bt+f]]);
+            polygon([[x-bt-f,-z-f],[x+f,-z-f],[x+f,-z+bt+f]]);
+        }
+    }
+}
+
+// From AMT_P
 for (bb = [0, 20]) {
     translate([0, bb, 0]) {
         rotate([90, 0, 0]) {
             difference() {
                 // main block
                 union() {
-                    cube([mainlength, footwidth, thickness]);
+                    // cube([mainlength, footwidth, thickness]);
                     translate([(mainlength - centrelength) / 2, 0, 0]) {
-                        cube([centrelength, footwidth, bardepth + 2 * thickness + screwrecessdepth]);
+                        bcube(x = centrelength, y = footwidth, z = bardepth + 2 * thickness + screwrecessdepth, bt = 2, bb = 2, bs = 2);
                     }
                 }
                 for (i = [(mainlength - centrelength) / 2 + thickness + cornerradius, (mainlength + centrelength) / 2 - thickness - cornerradius - barwidth]) {

@@ -13,6 +13,32 @@
  * Email: dhobern@gmail.com
  */
 
+module bcube(x=10, y=10, z=10, bt=2, bb=0, bs=2) {
+   f = 0.1;
+    difference() {
+        cube([x, y, z]);
+        translate([0,0,-f]) linear_extrude(height=z+2*f) {
+            polygon([[-f,-f],[bs+f,-f],[-f,bs+f]]);
+            polygon([[x-bs-f,-f],[x+f,-f],[x+f,bs+f]]);
+            polygon([[x-bs-f,y+f],[x+f,y+f],[x+f,y-bs-f]]);
+            polygon([[-f,y+f],[bs+f,y+f],[-f,y-bs-f]]);
+        }
+        rotate([0,90,0]) translate([0,0,-f]) linear_extrude(height=x+2*f) {
+            polygon([[f,-f],[-bb-f,-f],[-f,bb+f]]);
+            polygon([[-z-f,-f],[-z-f,bt+f],[-z+bt+f,-f]]);
+            polygon([[f,y+f],[-bb-f,y+f],[f,y-bb-f]]);
+            polygon([[-z-f,y+f],[-z-f,y-bt-f],[-z+bt+f,y+f]]);
+        }
+        rotate([-90,0,0]) translate([0,0,-f]) linear_extrude(height=y+2*f) {
+            polygon([[-f,f],[bb+f,f],[-f,-bb-f]]);
+            polygon([[x-bb-f,f],[x+f,f],[x+f,-bb-f]]);
+            polygon([[-f,-z-f],[bt+f,-z-f],[-f,-z+bt+f]]);
+            polygon([[x-bt-f,-z-f],[x+f,-z-f],[x+f,-z+bt+f]]);
+        }
+    }
+
+}
+
 // From AMT_PiZero_BaseBracket 
 length = 25; 
 width = 121;
@@ -45,25 +71,15 @@ $fn = 360;
 difference() {
     // main block
     union() {
-        cube([mainlength, footwidth, thickness]);
+        cube([mainlength, footwidth+bevel+fudge, thickness]);
         translate([(mainlength - centrelength) / 2, 0, 0]) {
-            cube([centrelength, footwidth, bardepth + 2 * thickness + screwrecessdepth]);
+            bcube(x=centrelength, y=footwidth + bevel + fudge, z=bardepth + 2 * thickness + screwrecessdepth, bt=0);
+            translate([0,footwidth - bevel,0]) {
+                bcube(x=centrelength,y=bardepth + 4*thickness,z=bardepth+2*thickness+screwrecessdepth+bevel);
+            }
         }
         translate([0, footwidth, 0]) {
-            cube([mainlength, bardepth + 4 * thickness, riserheight - bevel]);
-        }
-        translate([0, footwidth, riserheight - bevel]) {
-            polyhedron(points = [[0, 0, 0],
-                 [0, bardepth + 4 * thickness, 0],
-                 [mainlength, bardepth + 4 * thickness, 0],
-                 [mainlength, 0, 0],
-                 [bevel, bevel, bevel],
-                 [bevel, bardepth + 4 * thickness - bevel, bevel],
-                 [mainlength - bevel, bardepth + 4 * thickness - bevel, bevel],
-                 [mainlength - bevel, bevel, bevel]],
-       faces = [[0,1,2,3],[4,5,1,0],[7,6,5,4],[5,6,2,1],[6,7,3,2],[7,4,0,3]],  
-       convexity = 15);
-
+            bcube(x=mainlength, y=bardepth + 4 * thickness, z=riserheight, bt=bevel, bs=bevel);
         }
     }
     for (i = [(mainlength - centrelength) / 2 + thickness + cornerradius, (mainlength + centrelength) / 2 - thickness - cornerradius - barwidth]) {
@@ -129,17 +145,20 @@ difference() {
     }
 }
 
-translate([0, -footwidth - thickness, , 0]) {
+translate([0, -footwidth - thickness, 0]) {
     difference() {
         translate([(mainlength - centrelength) / 2, 0, 0]) {
             union() {
                 cube([centrelength, footwidth, 2 * thickness]);
                 for(i = [thickness + cornerradius, centrelength - thickness - cornerradius - barwidth]) {
                     translate([i + fudge, 0, 0]) {
-                        cube([barwidth - fudge2, footwidth, 3 * thickness]);
+                        cube([barwidth - fudge2, footwidth - bevel - fudge, 3 * thickness]);
                     }
                 }
             }
+        }
+        translate([0,footwidth,2 * thickness - bevel - fudge]) rotate([0,90,0]) linear_extrude(height = mainlength) {
+            polygon([[fudge,fudge],[-bevel-fudge,fudge],[-bevel-fudge,-bevel-fudge]]);
         }
         for(i = [thickness + cornerradius, centrelength - thickness - cornerradius - barwidth]) {
             translate([(mainlength - centrelength) / 2 + i + fudge, - fudge, 3 * thickness]) {
