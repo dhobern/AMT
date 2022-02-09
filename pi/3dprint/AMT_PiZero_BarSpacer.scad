@@ -18,8 +18,8 @@ length = 25;
 width = 121;
 height = 80;
 cornerradius = 6;
-barwidth = 25.2;
-bardepth = 3.2;
+barwidth = 25.4;
+bardepth = 3.4;
 thickness = 3;
 screwdiam = 5;
 
@@ -36,7 +36,6 @@ fudge = 0.1;
 fudge2 = 0.2;
 
 $fn = 360;
-
 
 module bcube(x=10, y=10, z=10, bt=2, bb=0, bs=2) {
    f = 0.1;
