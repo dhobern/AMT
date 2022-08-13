@@ -8,7 +8,23 @@ import csv
 import os
 import shutil
 import time
+import yaml
 from datetime import datetime
+import pyinaturalist
+import webbrowser
+
+metadata = None
+
+inaturalist_username = None
+inaturalist_password = None
+inaturalist_app_id = None
+inaturalist_app_secret = None
+inaturalist_token = None
+
+try:
+    from iNaturalistCredentials  import *
+except ImportError:
+    pass
 
 foldername = None
 blobfolder = None
@@ -20,16 +36,18 @@ grey = "#F0F0F0"
 blue = "#E8E8FF"
 red = "#FFD0D0"
 green = "#D0FFD0"
-
-trackheadings = ["id", "identification"]
+trackheadings = ["id", "identification", "inaturalistID", "inaturalistRG", "inaturalistTaxon"]
 
 class Track:
-    def __init__(self, id, blobs, identification, deleted = False):
+    def __init__(self, id, blobs, identification, inatid, inatrg, inattaxon, deleted = False):
         self.id = id
         self.blobs = blobs
         self.identification = identification
-        self.deleted = deleted
         self.averagesize = 1
+        self.inaturalist_id = inatid
+        self.inaturalist_rg = inatrg
+        self.inaturalist_taxon = inattaxon
+        self.deleted = deleted
 
     def setaveragesize(self):
         total = 0
@@ -147,6 +165,10 @@ class TrackCanvas(Canvas):
             blob[itrackid] = trackid
             target.append(blob)
         targettrack.setaveragesize()
+        if len(targettrack.inaturalist_id) == 0:
+            targettrack.inaturalist_id = sourcetrack.inaturalist_id
+            targettrack.inaturalist_rg = sourcetrack.inaturalist_rg
+            targettrack.inaturalist_taxon = sourcetrack.inaturalist_taxon
         displaytrackindex = self.startindex + sourceindex
         actualtrackindex = self.displaytracks[displaytrackindex]
         self.tracks.pop(actualtrackindex)
@@ -181,7 +203,7 @@ class TrackCanvas(Canvas):
                 blob[itrackid] = self.newtrackid
                 newblobs.append(blob)
             track.setaveragesize()
-            newtrack = Track(self.newtrackid, newblobs, track.identification, track.deleted)
+            newtrack = Track(self.newtrackid, newblobs, track.identification, track.inaturalist_id, track.inaturalist_rg, track.inaturalist_taxon, track.deleted)
             newtrack.setaveragesize()
             self.newtrackid -= 1
             indexbeforeinsertion = self.displaytracks[self.startindex + trackindex]
@@ -297,7 +319,9 @@ class TrackFrame(ttk.Frame):
         self.parent = parent
         self.linking = False
         self.taxonnames = taxonnames
+        self.blobsize = blobsize
         self.iimagename = iimagename
+        self.iblobid = iblobid
         if kwargs is None:
             kwargs = {}
         super().__init__(parent, **kwargs)
@@ -317,7 +341,7 @@ class TrackFrame(ttk.Frame):
         self.identify.bind("<Tab>", partial(parent.tabforward, self))
         self.identify.bind("<Shift-Tab>", partial(parent.tabbackward, self))
         i = 0
-        for t in ["Insecta", "Coleoptera", "Diptera", "Hymenoptera", "Lepidoptera", "Trichoptera", "Tortricidae", "Oecophoridae", "Araneae"]:
+        for t in ["Insecta", "Coleoptera", "Diptera", "Hymenoptera", "Lepidoptera", "Trichoptera", "Hemiptera", "Tortricidae", "Oecophoridae", "Formicidae", "Araneae"]:
             tbutton = ttk.Button(self.options, width = 6, text=t[0:3], command = partial(self.setidentification, t))
             tbutton.grid(column = 3 + i, row = 0, sticky = (N, W, S))
             i += 1
@@ -325,6 +349,8 @@ class TrackFrame(ttk.Frame):
         self.details.grid(column = 3 + i, row = 0, sticky=(N, W, S))
         self.trash = ttk.Button(self.options, text="🗑", command=self.deletetrack)
         self.trash.grid(column = 4 + i, row = 0, sticky=(N, W, S))
+        self.inat = ttk.Button(self.options, text="🐦", command=self.sendtoinaturalist)
+        self.inat.grid(column = 5 + i, row = 0, sticky=(N, W, S))
         self.bframe = BlobFrame(self, None, blobsize, iimagename, iblobid, odd)
         self.bframe.grid(column = 0, row = 1, sticky=(N, W, E, S))
         self.bframe.grid_propagate(False)
@@ -350,6 +376,23 @@ class TrackFrame(ttk.Frame):
     def deletetrack(self):
         self.track.deleted = not self.track.deleted
         self.setstyle()  
+
+    def sendtoinaturalist(self):
+        global root, inaturalist_token, metadata
+        if len(self.track.inaturalist_id) > 0:
+            webbrowser.open('https://inaturalist.ala.org.au/observations/' + self.track.inaturalist_id, new=2)
+        elif len(self.track.identification) > 0:
+            if inaturalist_token is None:
+                global inaturalist_username, inaturalist_password, inaturalist_app_id, inaturalist_app_secret
+                inaturalist_token = pyinaturalist.get_access_token(username=inaturalist_username, password=inaturalist_password, app_id=inaturalist_app_id, app_secret=inaturalist_app_secret)
+            if metadata is None:
+                metadata = readamtmetadata()
+            if inaturalist_token is not None and metadata is not None:
+                d = iNaturalistDialog(root, self, self.blobsize, self.iimagename, self.iblobid, self.track.blobs, metadata, inaturalist_token, self.track.identification)
+                root.wait_window(d.top)
+            if len(self.track.inaturalist_id) > 0:
+                global datafolder, tracks, trackheadings, headings, taxondictionary, taxonnames, taxonmaster
+                savetracks(datafolder, tracks, trackheadings, headings, taxondictionary, taxonnames, taxonmaster)
 
     def viewdetails(self):
         global root
@@ -398,8 +441,11 @@ class TrackFrame(ttk.Frame):
                 taxonnames.sort()
         return True
 
+    def setinaturalistid(self, id):
+        self.track.inaturalist_id = id
+
 class BlobFrame(ttk.Frame):
-    def __init__(self, container, blobs, blobsize, iimagename, iblobid, odd, **kwargs):
+    def __init__(self, container, blobs, blobsize, iimagename, iblobid, odd, mode="SplitJoin", **kwargs):
         self.blobs = [] if blobs is None else blobs
         self.blobsize = blobsize
         self.buttons = []
@@ -411,6 +457,9 @@ class BlobFrame(ttk.Frame):
         self.iimagename = iimagename
         self.iblobid = iblobid
         self.odd = odd
+        self.mode = mode
+        self.selected = []
+        self.buttonlookup = {}
         padding = str(self.pady) + " " + str(self.pady) + " " + str(self.padx) + " " + str(self.padx)
         if kwargs is None:
             kwargs = {}
@@ -448,17 +497,35 @@ class BlobFrame(ttk.Frame):
                         img = img.resize((int(float(size[0])*scale),int(float(size[1])*scale)))
                     img = ImageTk.PhotoImage(img)
                     images[imagefile] = img
-                button = Button(self, width = self.blobsize, height = self.blobsize, bd=-3, background=grey if self.odd else blue, image=img, command=partial(self.click, -1 if first else blob[self.iblobid]))
+                if self.mode == "SplitJoin":
+                    command = partial(self.splitjoin, -1 if first else blob[self.iblobid])
+                elif self.mode == "MultiSelect":
+                    command = partial(self.multiselect, blob[self.iblobid])
+                else:
+                    command = partial(self.silentclick, blob)
+                button = Button(self, width = self.blobsize, height = self.blobsize, bd=-3, background=grey if self.odd else blue, image=img, command=command)
                 first = False
                 self.buttons.append(button)
+                self.buttonlookup[blob[self.iblobid]] = button
         self.arrangeblobs()
 
-    def click(self, blobid):
+    def splitjoin(self, blobid):
         if blobid == -1:
             self._nametowidget(self.winfo_parent()).joinwithprevious()
         else:
             self._nametowidget(self.winfo_parent()).splitat(blobid)
     
+    def multiselect(self, blobid):
+        if blobid in self.selected:
+            self.selected.remove(blobid)
+            self.buttonlookup[blobid].configure(bg = grey if self.odd else blue)
+        else:
+            self.selected.append(blobid)
+            self.buttonlookup[blobid].configure(bg = green)
+
+    def silentclick(self, blob):
+        pass
+
     def arrangeblobs(self):
         for b in range(len(self.buttons)):
             button = self.buttons[b]
@@ -538,6 +605,146 @@ class DetailsDialog:
     def cancel(self, event=None):
         self.top.destroy()
 
+class iNaturalistDialog(ttk.Frame):
+    def __init__(self, root, tframe, blobsize, iimagename, iblobid, blobs, metadata, token, identification, **kwargs):
+        self.tframe = tframe
+        self.top = Toplevel(root)
+        self.top.transient(root)
+        self.top.grab_set()
+        self.top.title("Track: " + str(tframe.track.id))
+        self.iimagename = iimagename
+        self.blobs = blobs
+        self.iblobid = iblobid
+        self.metadata = metadata
+        self.token = token
+        self.identification = identification
+        super().__init__(root, **kwargs)
+
+        self.bframe = BlobFrame(self.top, None, blobsize, iimagename, iblobid, False, mode="MultiSelect")
+        self.bframe.grid(column = 0, row = 0, columnspan=2, sticky=(N, W, E, S))
+        self.bframe.grid_propagate(False)
+        self.bframe.configure(width = 1000, height = 600)
+        self.bframe.setblobs(self.blobs)
+        self.info = ttk.Label(self.top, width = 50, text="")
+        self.info.grid(column = 0, row = 1, columnspan = 2, sticky=(N, E, W, S))
+        infotext = identification
+        if "latitude" in metadata and "longitude" in metadata:
+            infotext += " (" + str(abs(metadata["longitude"])) + (" E, " if metadata["longitude"] >= 0 else " W,") + str(abs(metadata["latitude"])) + (" N" if metadata["latitude"] >= 0 else " S")
+            if "positional_accuracy" in metadata:
+                infotext += ", " + str(metadata["positional_accuracy"]) + " metres accuracy"
+            infotext += ")"
+        self.info.config(text=infotext)
+        self.description = ttk.Entry(self.top, width=50)
+        self.description.insert(END, metadata["description"])
+        self.description.grid(column = 0, row = 2, columnspan = 2, sticky=(N, E, W, S))
+    
+        self.cancel = ttk.Button(self.top, text="Cancel", command=self.cancel)
+        self.cancel.grid(column = 0, row = 3, sticky=(N, E, W, S))
+        self.create = ttk.Button(self.top, text="Submit", command=self.create)
+        self.create.grid(column = 1, row = 3, sticky=(N, E, W, S))
+        self.cancel.focus_set()
+
+        self.width = 0
+        self.height = 0
+
+        self.top.columnconfigure(0, weight=1)
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(0, weight=1)
+
+    def calculateheight(self, width):
+        if width != self.width or self.height == 0:
+            self.width = width
+            self.height = self.bframe.calculateheight(width) + self.cancel.winfo_height()
+            self.configure(width=self.width, height=self.height)
+        return self.height
+
+    def bbox(self, tagOrId = None):
+        return (0, 0, self.width, self.height)
+
+    def create(self, event=None):
+        if len(self.bframe.selected) > 0:
+            photoset = []
+            for b in self.bframe.selected:
+                for i in range(len(self.blobs)):
+                    if self.blobs[i][self.iblobid] == b:
+                        photoset.append(os.path.join(blobfolder, self.blobs[i][self.iimagename]))
+            if len(photoset) > 0:
+                response = pyinaturalist.create_observation(
+                    species_guess=self.identification,
+                    observed_on_string=track_datetime(self.blobs, self.iimagename),
+                    time_zone='Sydney',
+                    description=self.description.get(),
+                    tag_list=self.metadata["tag_list"],
+                    latitude=self.metadata["latitude"],
+                    longitude=self.metadata["longitude"],
+                    positional_accuracy=self.metadata["positional_accuracy"],
+                    access_token=self.token,
+                    photos=photoset
+                )
+
+                # Save the new observation ID
+                self.tframe.setinaturalistid(str(response['id']))
+        self.top.destroy()
+
+    def cancel(self, event=None):
+        self.top.destroy()
+
+def track_datetime(blobs, iimagename):
+    for b in blobs:
+        if len(b[iimagename]) > 0:
+            i = b[iimagename].index("_")
+            if i >= 0:
+                i += 1
+                j = b[iimagename].index("_", i)
+                if j >= 0:
+                    return datetime.strptime(b[iimagename][i:j],"%Y%m%d%H%M%S")
+    return None
+
+def readamtmetadata():
+    metadata = {}
+    metadata["latitude"] = ""
+    metadata["longitude"] = ""
+    metadata["positional_accuracy"] = ""
+    metadata["description"] = 'Image(s) from Automated Moth Trap - see <a href="https://amt.hobern.net/">AMT project overview</a>.'
+    metadata["tag_list"] = 'AutomatedMothTrap'
+    metadatafilename = os.path.join(foldername, "amt_metadata.yaml")
+    if os.path.isfile(metadatafilename):
+        yamlmetadata = yaml.load(open(metadatafilename), Loader=yaml.FullLoader)
+        if "event" in yamlmetadata:
+            event = yamlmetadata["event"]
+            if "decimalLatitude" in event:
+                metadata["latitude"] = event["decimalLatitude"]
+            if "decimalLongitude" in event:
+                metadata["longitude"] = event["decimalLongitude"]
+            if "coordinateUncertaintyInMeters" in event:
+                metadata["positional_accuracy"] = event["coordinateUncertaintyInMeters"]
+        if "provenance" in yamlmetadata and "capture" in yamlmetadata["provenance"]:
+            capture = yamlmetadata["provenance"]["capture"]
+            hardware = []
+            if "unitname" in capture:
+                hardware.append("Unit: " + capture["unitname"])
+                metadata["tag_list"] = metadata["tag_list"] + ", " + capture["unitname"]
+            if "processor" in capture:
+                hardware.append("Processor: " + capture["processor"])
+            if "camera" in capture:
+                hardware.append("Camera: " + capture["camera"])
+            if "illumination" in capture:
+                hardware.append("Illumination: " + capture["illumination"])
+            if "uvlight" in capture:
+                hardware.append("UV light: " + capture["uvlight"])
+            if "mode" in capture:
+                mode = capture["mode"]
+                if mode == "Motion":
+                    modetext = "motion detection by "
+                elif mode == "TimeLapse":
+                    modetext = "timelapse capture by "
+                else:
+                    modetext = ""
+
+            if (len(hardware) > 0):
+                metadata["description"] = 'Image(s) from ' + modetext + 'Automated Moth Trap (' + "; ".join(hardware) + ') - see <a href="https://amt.hobern.net/">AMT project overview</a>.'
+    return metadata
+
 def reporthierarchy(widget, indent = ""):
     print(indent + widget.winfo_class() + ": " + str(widget.winfo_width()) + "x" + str(widget.winfo_height()))
     for child in widget.winfo_children():
@@ -565,7 +772,7 @@ def savetracks(datafolder, tracks, trackheadings, blobheadings, taxondictionary,
         trackid = 1
         for track in tracks:
             if not track.deleted:
-                amttrackwriter.writerow([str(trackid), track.identification])
+                amttrackwriter.writerow([str(trackid), track.identification, track.inaturalist_id, track.inaturalist_rg, track.inaturalist_taxon])
                 for blob in track.blobs:
                     blob[itrackid] = trackid
                     amtblobwriter.writerow(blob)
@@ -587,6 +794,7 @@ def savetracks(datafolder, tracks, trackheadings, blobheadings, taxondictionary,
 blobsbyid = {}
 tracks = []
 identifications = {}
+inaturalistrecords = {}
 taxondictionary = None
 taxonnames = []
 
@@ -620,8 +828,19 @@ if os.path.isdir(datafolder):
                 headings = next(trackreader)
                 iid = headings.index("id")
                 iidentification = headings.index("identification")
+                if "inaturalistID" in headings:
+                    iinatid = headings.index("inaturalistID")
+                    iinatrg = headings.index("inaturalistRG")
+                    iinattaxon = headings.index("inaturalistTaxon")
+                else:
+                    iinatid = -1
+                    iinatrg = -1
+                    iinattaxon = -1
                 for track in trackreader:
                     identifications[track[iid]] = track[iidentification]
+                    if iinatid >= 0 and len(track[iinatid]) > 0:
+                        inaturalistrecords[track[iid]] = [track[iinatid], track[iinatrg] if iinatrg >= 0 else False, track[iinattaxon] if iinattaxon >=0 else ""]
+
 
         with open(blobfile, newline='') as bloblist:
             blobreader = csv.reader(bloblist, delimiter=',')
@@ -636,11 +855,14 @@ if os.path.isdir(datafolder):
                 else:
                     blobs = []
                     blobsbyid[trackid] = blobs
+                    inat = ["", False, ""]
                     if trackid in identifications:
                         identification = identifications[trackid]
+                        if trackid in inaturalistrecords:
+                            inat = inaturalistrecords[trackid]
                     else:
                         identification = ""
-                    tracks.append(Track(trackid, blobs, identification))
+                    tracks.append(Track(trackid, blobs, identification, inat[0], inat[1], inat[2]))
                 blobs.append(blob)
 
             blobfolder = os.path.join(datafolder, "blob")

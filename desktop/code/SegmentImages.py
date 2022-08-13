@@ -116,6 +116,11 @@ if len(sys.argv) >= 2:
 else:
     config_filename = "../config/AMT_config.json"
 
+if len(sys.argv) >= 3:
+    selectedfolder = sys.argv[2]
+else:
+    selectedfolder = None
+
 amtimgheadings = [ "id", "datetime", "filename", "temperature", "humidity" ]
 amtblobheadings = [ "id", "imageid", "filename", "x", "y", "w", "h", "xcrop", "ycrop", "wcrop", "hcrop", "xcenter", "ycenter", "size", "illumination", "changed", "colors", "trackid", "cost", "weights", "direction", "delay" ]
 
@@ -132,7 +137,7 @@ agecolors = [(0, 128, 0), (255, 0, 0), (255, 50, 50), (255, 100, 100), (255, 150
 
 p = re.compile("^20[-0-9]*$")
 for f in os.listdir(basefolder):
-    if os.path.isdir(os.path.join(basefolder, f)) and p.match(f):
+    if os.path.isdir(os.path.join(basefolder, f)) and (selectedfolder is None or selectedfolder == f) and p.match(f):
         if not conf['force'] and os.path.isdir(os.path.join(basefolder, f, "data")):
             print(f + " - already processed")
         else:

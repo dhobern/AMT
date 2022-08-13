@@ -302,36 +302,44 @@ def timelapse(manuallytriggered = False):
             logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
 
         # End if mode is switched or last image is captured for automatic mode
-        while modestillvalid(manual) and (manual or (not manual and imagecount > 0)):
-            # If requested, show status light
-            if statuslight:
-                showstatus("red")
-            
-            # Capture image with metadata in filename
-            imagetimestamp = datetime.today()
-            imagename = imagetimestamp.strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'
-            imagepath = os.path.join(foldername, imagename)
-            camera.capture(imagepath, format = "jpeg", quality = jpegquality)
+        imagenumber = 0
+        while modestillvalid(manual) and (manual or (not manual and imagecount > imagenumber)):
+            try:
+                # If requested, show status light
+                if statuslight:
+                    showstatus("red")
+                
+                # Capture image with metadata in filename
+                imagetimestamp = datetime.today()
+                imagename = imagetimestamp.strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'
+                imagepath = os.path.join(foldername, imagename)
+                imagenumber += 1
+                logging.info("Capturing image " + str(imagenumber))
+                camera.capture(imagepath, format = "jpeg", quality = jpegquality)
+                logging.info("Captured image " + str(imagenumber) + ": " + imagepath)
 
-            # If a USB capture folder is present, copy the image there
-            if transferfoldername and os.path.exists(transferfoldername):
-                try:
-                    shutil.copyfile(imagepath, os.path.join(transferfoldername, imagename))
-                except:
-                    logging.exception("Failed to copy image to USB")
-            
-            # Reset status light
-            if statuslight:
-                showstatus("green")
+                # If a USB capture folder is present, copy the image there
+                if transferfoldername and os.path.exists(transferfoldername):
+                    try:
+                        shutil.copyfile(imagepath, os.path.join(transferfoldername, imagename))
+                    except:
+                        logging.exception("Failed to copy image to USB")
+                
+                # Reset status light
+                if statuslight:
+                    showstatus("green")
 
-            # Image capture and copy will have used some of the interval time. Adjust how long to sleep.
-            endtimestamp = datetime.today()
-            elapsed = (endtimestamp - imagetimestamp).total_seconds()
-            sleepinterval = interval - elapsed
-            if sleepinterval > 0:
-                time.sleep(sleepinterval)
+                # Image capture and copy will have used some of the interval time. Adjust how long to sleep.
+                endtimestamp = datetime.today()
+                elapsed = (endtimestamp - imagetimestamp).total_seconds()
+                sleepinterval = interval - elapsed
+                if sleepinterval > 0:
+                    time.sleep(sleepinterval)
+            except:
+                logging.exception("Caught exception in main loop")
 
-            imagecount -= 1
+        if not modestillvalid(manual):
+            logging.info("Mode changed during loop from " + ("manual to automatic" if manual else "automatic to manual"))
 
         logging.info("Time series complete")
 
