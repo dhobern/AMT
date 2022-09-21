@@ -396,8 +396,9 @@ class TrackFrame(ttk.Frame):
 
     def viewdetails(self):
         global root
-        d = DetailsDialog(root, self)
-        root.wait_window(d.top)
+        if self.track is not None:
+            d = DetailsDialog(root, self)
+            root.wait_window(d.top)
 
     def linktracks(self):
         self.linking = self.parent.linktracks(self.track.id)
@@ -841,7 +842,6 @@ if os.path.isdir(datafolder):
                     if iinatid >= 0 and len(track[iinatid]) > 0:
                         inaturalistrecords[track[iid]] = [track[iinatid], track[iinatrg] if iinatrg >= 0 else False, track[iinattaxon] if iinattaxon >=0 else ""]
 
-
         with open(blobfile, newline='') as bloblist:
             blobreader = csv.reader(bloblist, delimiter=',')
             headings = next(blobreader)
@@ -866,6 +866,10 @@ if os.path.isdir(datafolder):
                 blobs.append(blob)
 
             blobfolder = os.path.join(datafolder, "blob")
+
+            if len(tracks) == 0:
+                print("No tracks to edit")
+                exit()
 
             for track in tracks:
                 track.setaveragesize()

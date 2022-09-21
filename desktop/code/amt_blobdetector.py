@@ -135,7 +135,7 @@ class AMTBlobDetector:
 
         iheight, iwidth, _ = img.shape
 
-        for r in rects_bgnd:
+        for r in rects_prev:
             x, y, w, h = r
             blob = {}
             blob["imageid"] = imageid
