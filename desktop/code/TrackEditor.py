@@ -6,9 +6,12 @@ from functools import partial
 import math
 import csv
 import os
+import sys
 import shutil
 import time
 import yaml
+import json 
+import requests 
 from datetime import datetime
 import pyinaturalist
 import webbrowser
@@ -37,6 +40,37 @@ blue = "#E8E8FF"
 red = "#FFD0D0"
 green = "#D0FFD0"
 trackheadings = ["id", "identification", "inaturalistID", "inaturalistRG", "inaturalistTaxon"]
+
+def get_taxon(taxonName):
+    global taxonheadings
+    taxon = [""] * len(taxonheadings)
+    taxon[0] = taxonName
+    api_url = 'https://api.catalogueoflife.org/dataset/3LR/nameusage/search?fuzzy=false&type=EXACT&content=SCIENTIFIC_NAME&q=' + taxonName.replace(' ', '+')
+    names = json.loads(requests.get(api_url).text)
+    if names and "result" in names:
+        if len(names['result']) > 1:
+            for i in range(len(names['result']) - 1, -1, -1):
+                if names['result'][i]['classification'][1]['name'] != "Animalia":
+                    names['result'].pop(i)
+        if len(names['result']) > 1:
+            for i in range(len(names['result']) - 1, -1, -1):
+                if "accepted" in names['result'][i]['usage']:
+                    names['result'].pop(i)
+        if len(names['result']) == 1:
+            name = names['result'][0]
+            taxon[1] = name["id"]
+            taxon[2] = "https://www.catalogueoflife.org/data/taxon/" + taxon[1]
+            taxon[3] = name["usage"]["name"]["scientificName"]
+            if "authorship" in name["usage"]["name"]:
+                taxon[4] = name["usage"]["name"]["authorship"]
+            taxon[5] = name["usage"]["name"]["rank"]
+            classification = name['classification']
+            for node in classification:
+                rank = node["rank"]
+                if rank in taxonheadings:
+                    taxon[taxonheadings.index(rank)] = node["name"]
+    return taxon
+
 
 class Track:
     def __init__(self, id, blobs, identification, inatid, inatrg, inattaxon, deleted = False):
@@ -336,7 +370,7 @@ class TrackFrame(ttk.Frame):
         self.label.grid(column = 0, row = 0, sticky=(N, W, S))
         self.link = ttk.Button(self.options, text = "🔗", command=self.linktracks)
         self.link.grid(column = 1, row = 0, sticky=(N, W, S))
-        self.identify = AutocompleteEntry(self.options, width = 30, textvariable=self.taxonname, validate="focusout", validatecommand=(callback, '%P'), completevalues=taxonnames)
+        self.identify = AutocompleteEntry(self.options, width = 30, textvariable=self.taxonname, validate="focusout", validatecommand=(callback, '%P'), completevalues=taxonnames.keys())
         self.identify.grid(column = 2, row = 0, sticky=(N, W, S))
         self.identify.bind("<Tab>", partial(parent.tabforward, self))
         self.identify.bind("<Shift-Tab>", partial(parent.tabbackward, self))
@@ -437,9 +471,8 @@ class TrackFrame(ttk.Frame):
     def identificationchanged(self, input):
         if self.track is not None:
             self.track.identification = input.strip()
-            if self.track.identification not in self.taxonnames:
-                taxonnames.append(self.track.identification)
-                taxonnames.sort()
+            if len(self.track.identification) > 0 and self.track.identification not in self.taxonnames:
+                taxonnames[self.track.identification] = get_taxon(self.track.identification)
         return True
 
     def setinaturalistid(self, id):
@@ -778,18 +811,24 @@ def savetracks(datafolder, tracks, trackheadings, blobheadings, taxondictionary,
                     blob[itrackid] = trackid
                     amtblobwriter.writerow(blob)
                 trackid += 1
-    if taxondictionary is not None and len(taxonnames) > len(taxonmaster):
-        save = False
+    if taxondictionary is not None and len(taxonnames) >= len(taxonmaster):
+        save = True
         for track in tracks:
             if track.identification not in taxonmaster:
-                taxonmaster.append(track.identification)
+                if track.identification not in taxonnames:
+                    taxonmaster[track.identification] = get_taxon(track.identification)
+                else:
+                    taxonmaster[track.identification] = taxonnames[track.identification]
                 save = True
         if save:
-            taxonmaster.sort()
+            taxon_keys = list(taxonmaster.keys())
+            taxon_keys.sort()
             shutil.copyfile(taxondictionary, taxondictionary + "." + datetime.now().strftime("%Y%m%d%H%M%S") + ".save")
             with open(taxondictionary, 'w', newline='', encoding="utf8") as taxonlist:
-                for name in taxonmaster:
-                    taxonlist.write("%s\n" % name)
+                taxonwriter = csv.writer(taxonlist, delimiter=',')
+                taxonwriter.writerow(taxonheadings)
+                for name in taxon_keys:
+                    taxonwriter.writerow(taxonmaster[name])
 
 
 blobsbyid = {}
@@ -797,7 +836,8 @@ tracks = []
 identifications = {}
 inaturalistrecords = {}
 taxondictionary = None
-taxonnames = []
+taxonnames = {}
+taxonheadings = ["taxon", "id", "url", "name", "authorship", "rank", "kingdom", "phylum", "class", "order", "family", "subfamily", "tribe", "genus", "species"]
 
 if len(sys.argv) < 2:
     print("Usage: python TrackEditor.py directorypath [taxondictionary]")
@@ -806,11 +846,11 @@ if len(sys.argv) < 2:
 if len(sys.argv) > 2:
     taxondictionary = sys.argv[2]
     if os.path.isfile(taxondictionary):
-        taxonnames = []
-        with open(taxondictionary, newline='') as taxonlist:
-            lines = taxonlist.readlines()
-            for line in lines:
-                taxonnames.append(line.strip())
+        with open(taxondictionary, newline='') as taxon_file:
+            taxon_reader = csv.reader(taxon_file, delimiter=',')
+            next(taxon_reader)
+            for line in taxon_reader:
+                taxonnames[line[0].strip()] = line
 
 taxonmaster = taxonnames.copy()
 
