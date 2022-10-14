@@ -6,3 +6,4 @@ CameraSettings.txt
 *.pyc
 *.xlsx
 /.vs/
+desktop/code/ManageDictionary.py
