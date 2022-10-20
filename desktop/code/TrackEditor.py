@@ -846,7 +846,7 @@ if len(sys.argv) < 2:
 if len(sys.argv) > 2:
     taxondictionary = sys.argv[2]
     if os.path.isfile(taxondictionary):
-        with open(taxondictionary, newline='') as taxon_file:
+        with open(taxondictionary, newline='', encoding="utf8") as taxon_file:
             taxon_reader = csv.reader(taxon_file, delimiter=',')
             next(taxon_reader)
             for line in taxon_reader:
