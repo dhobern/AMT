@@ -71,6 +71,18 @@ def get_taxon(taxonName):
                     taxon[taxonheadings.index(rank)] = node["name"]
     return taxon
 
+def measure_progress():
+    global tracks, progress
+    if tracks is not None and len(tracks) > 0:
+        processed = 0
+        for t in tracks:
+            if t.deleted or len(t.identification) > 0:
+                processed += 1
+        return str(processed) + " / " + str(len(tracks))
+    else:
+        return "-"
+
+
 
 class Track:
     def __init__(self, id, blobs, identification, inatid, inatrg, inattaxon, deleted = False):
@@ -286,6 +298,8 @@ class TrackCanvas(Canvas):
             self.refreshtframes()
 
     def refreshtframes(self):
+        global progress
+        progress.config(text = measure_progress())
         canvas.yview_moveto(0)
         rangeend = self.rows
         if self.startindex + self.rows > len(self.displaytracks):
@@ -830,6 +844,9 @@ def savetracks(datafolder, tracks, trackheadings, blobheadings, taxondictionary,
                 for name in taxon_keys:
                     taxonwriter.writerow(taxonmaster[name])
 
+    global progress
+    progress.config(text = measure_progress())
+
 
 blobsbyid = {}
 tracks = []
@@ -970,6 +987,8 @@ nextpage = ttk.Button(menu, text="Next", command=trackviewer.nextpage, padding="
 nextpage.grid(column=6, row=0, sticky=(N, E))
 save = ttk.Button(menu, text="Save", command=partial(savetracks, datafolder, tracks, trackheadings, headings, taxondictionary, taxonnames, taxonmaster), padding="5 5 5 5")
 save.grid(column=7, row=0, sticky=(N, E))
+progress = ttk.Label(menu, width = 10, anchor = CENTER, text = measure_progress())
+progress.grid(column=8, row=0, sticky=(N, E))
 
 root.columnconfigure(0, weight=1)
 root.rowconfigure(1, weight=1)
