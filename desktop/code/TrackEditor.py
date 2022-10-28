@@ -1,3 +1,4 @@
+from genericpath import isdir
 from tkinter import *
 from tkinter import ttk
 from ttkwidgets.autocomplete import AutocompleteEntry
@@ -11,10 +12,12 @@ import shutil
 import time
 import yaml
 import json 
+import re
 import requests 
 from datetime import datetime
 import pyinaturalist
 import webbrowser
+from multiprocessing import current_process
 
 metadata = None
 
@@ -40,6 +43,42 @@ blue = "#E8E8FF"
 red = "#FFD0D0"
 green = "#D0FFD0"
 trackheadings = ["id", "identification", "inaturalistID", "inaturalistRG", "inaturalistTaxon"]
+
+track_processed = 3
+track_incomplete = 2
+track_missing = 1
+track_na = 0
+
+def track_completeness(foldername):
+    if os.path.exists(foldername) and os.path.isdir(foldername):
+        datafolder = os.path.join(foldername, "data")
+        if os.path.exists(datafolder) and os.path.isdir(datafolder):
+            trackfile = os.path.join(datafolder, "amt_track.csv")
+            if os.path.exists(trackfile) and os.path.isfile(trackfile):
+                with open(trackfile, newline='') as tracklist:
+                    trackreader = csv.reader(tracklist, delimiter=',')
+                    for track in trackreader:
+                        if len(track) > 0 and len(track[1]) == 0:
+                            return track_incomplete
+                    return track_processed
+            else:
+                return track_missing
+    return track_na
+
+def find_folder_by_keyword(parent_folder, kw):
+    p = re.compile("^20[-0-9]*$")
+    foldername = ""
+
+    for f in os.listdir(parent_folder):
+        if p.match(f):
+            foldername = os.path.join(parent_folder, f)
+            if os.path.isdir(foldername):
+                completeness = track_completeness(foldername)
+                if kw == "INCOMPLETE" and completeness in [track_missing, track_incomplete]:
+                    return foldername
+    
+    # Treat all other keywords as LATEST
+    return foldername
 
 def get_taxon(taxonName):
     global taxonheadings
@@ -860,6 +899,8 @@ if len(sys.argv) < 2:
     print("Usage: python TrackEditor.py directorypath [taxondictionary]")
     sys.exit()
 
+current_process().name = "TrackEditor"
+
 if len(sys.argv) > 2:
     taxondictionary = sys.argv[2]
     if os.path.isfile(taxondictionary):
@@ -872,6 +913,11 @@ if len(sys.argv) > 2:
 taxonmaster = taxonnames.copy()
 
 foldername = sys.argv[1]
+
+if "@" in foldername:
+    parts = foldername.split("@")
+    foldername = find_folder_by_keyword(parts[0], parts[1])
+
 datafolder = os.path.join(foldername, "data")
 if os.path.isdir(datafolder):
     blobfile = os.path.join(datafolder, "amt_blob.csv")
