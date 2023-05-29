@@ -1033,7 +1033,7 @@ nextpage = ttk.Button(menu, text="Next", command=trackviewer.nextpage, padding="
 nextpage.grid(column=6, row=0, sticky=(N, E))
 save = ttk.Button(menu, text="Save", command=partial(savetracks, datafolder, tracks, trackheadings, headings, taxondictionary, taxonnames, taxonmaster), padding="5 5 5 5")
 save.grid(column=7, row=0, sticky=(N, E))
-progress = ttk.Label(menu, width = 10, anchor = CENTER, text = measure_progress())
+progress = ttk.Label(menu, width = 16, anchor = CENTER, text = measure_progress())
 progress.grid(column=8, row=0, sticky=(N, E))
 
 root.columnconfigure(0, weight=1)
