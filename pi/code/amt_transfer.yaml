@@ -1,0 +1,7 @@
+transfer:
+    transferimages: true
+    deleteontransfer: false
+    deleteonetime: false
+    deleteall: false
+    transfersettings: false
+    transfersoftware: false

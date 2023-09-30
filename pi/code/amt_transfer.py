@@ -72,9 +72,10 @@ import logging
 # Common utility functions
 from amt_util import *
 
-basefolder = '/media/usb'
-capturetargetname = 'captures'
+basefolder = "/media/usb"
+capturetargetname = "captures"
 unitname = "UNKNOWN"
+
 
 # Check whether two folders already match in file contents
 def filesmatch(folderA, folderB):
@@ -104,14 +105,14 @@ def filesmatch(folderA, folderB):
 
 def savefilebackup(folder, file):
     if os.path.isfile(file):
-        backupsfolder = os.path.join(folder, 'backups')
+        backupsfolder = os.path.join(folder, "backups")
         if not os.path.isdir(backupsfolder):
-            os.mkdir(backupsfolder)        
+            os.mkdir(backupsfolder)
 
-        parts = file.split('/')
+        parts = file.split("/")
         newfile = os.path.join(backupsfolder, parts.pop())
 
-        subprocess.call(['cp', file, newfile])
+        subprocess.call(["cp", file, newfile])
         logging.info("Copied " + file + " to " + newfile)
 
 
@@ -135,13 +136,15 @@ def transferfiles(config):
             logging.error("USB drive not present - cancelling transfer")
             return False
 
-    timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
+    timestamp = datetime.today().strftime("%Y%m%d-%H%M%S")
     timestampfolder = os.path.join(amtfolder, timestamp)
     if not os.path.exists(timestampfolder):
         os.mkdir(timestampfolder)
 
-    loghandler = logging.FileHandler(os.path.join(timestampfolder, 'amt_transfer.log'))
-    formatter = logging.Formatter(unitname + ': %(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    loghandler = logging.FileHandler(os.path.join(timestampfolder, "amt_transfer.log"))
+    formatter = logging.Formatter(
+        unitname + ": %(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     loghandler.setFormatter(formatter)
     logging.getLogger().addHandler(loghandler)
 
@@ -190,15 +193,20 @@ def transferfiles(config):
                     destinationsubfolder = os.path.join(capturedestination, c)
                     # Don't copy files that have already been copied
                     if not filesmatch(capturesubfolder, destinationsubfolder):
-                        subprocess.call(['cp', '-fr',  capturesubfolder, capturedestination], shell=False)
+                        subprocess.call(
+                            ["cp", "-fr", capturesubfolder, capturedestination],
+                            shell=False,
+                        )
                         logging.info("Copied " + capturesubfolder)
                     else:
-                        logging.info("Folder already copied: " + capturesubfolder + " - skipping")
+                        logging.info(
+                            "Folder already copied: " + capturesubfolder + " - skipping"
+                        )
                 except:
                     logging.exception("Error copying files")
                     success = False
                     logging.error("Copy of " + capturesubfolder + " failed")
-            
+
             if deleteall:
                 logging.info("deleteall is true - deleting all images")
             elif deleteonetime:
@@ -206,17 +214,21 @@ def transferfiles(config):
                 deleteall = True
             elif deleteontransfer:
                 if success:
-                    logging.info("deleteontransfer is true and transfer succeeded - deleting all images")
+                    logging.info(
+                        "deleteontransfer is true and transfer succeeded - deleting all images"
+                    )
                     deleteall = True
                 else:
-                    logging.info("deleteontransfer is true but transfer failed - skipping deletion")
+                    logging.info(
+                        "deleteontransfer is true but transfer failed - skipping deletion"
+                    )
 
             if deleteall:
                 logging.info("Deleting from " + capturesource)
                 for c in os.listdir(capturesource):
                     try:
                         capturesubfolder = os.path.join(capturesource, c)
-                        subprocess.call(['rm', '-fr', capturesubfolder], shell=False)
+                        subprocess.call(["rm", "-fr", capturesubfolder], shell=False)
                         logging.info("Deleted " + capturesubfolder)
                     except Error as err:
                         logging.error("Error removing files " + str(err.args[0]))
@@ -230,53 +242,56 @@ def transferfiles(config):
         # modifiers in their names can be used to vary behaviour between automated (i.e.
         # crontab) runs.
         for f in os.listdir(amtfolder):
-            if f.startswith('amt_settings.') and f.endswith(".yaml"):
+            if f.startswith("amt_settings.") and f.endswith(".yaml"):
                 logging.info("Importing " + f)
                 importconfigurationfile = os.path.join(amtfolder, f)
-                localconfigurationfile = os.path.join('/home/pi', f)
+                localconfigurationfile = os.path.join("/home/pi", f)
 
                 savefilebackup(timestampfolder, localconfigurationfile)
-                subprocess.call(['cp', importconfigurationfile, localconfigurationfile])
+                subprocess.call(["cp", importconfigurationfile, localconfigurationfile])
 
                 configurationupdated = True
-            
+
         if configurationupdated:
             logging.info("Configuration updated")
         else:
             logging.error("No configuration files found in " + amtfolder)
 
-
     if transfersoftware:
         logging.info("transferimage is true - updating software")
 
         for f in os.listdir(amtfolder):
-            if f.startswith('amt_') and f.endswith(".py") and f not in ['amt_transfer.py', 'amt_modeselector.py']:
-                pythonfile = os.path.join('/home/pi', f)
+            if (
+                f.startswith("amt_")
+                and f.endswith(".py")
+                and f not in ["amt_transfer.py", "amt_modeselector.py"]
+            ):
+                pythonfile = os.path.join("/home/pi", f)
                 newpythonfile = os.path.join(amtfolder, f)
                 savefilebackup(timestampfolder, pythonfile)
-                subprocess.call(['cp', newpythonfile, pythonfile])
+                subprocess.call(["cp", newpythonfile, pythonfile])
                 logging.info("Software updated - " + f)
 
     logging.info("Copying logfiles")
-    for f in os.listdir('/home/pi'):
-        if f.startswith('amt_') and f.endswith(".log"):
-            logfile = os.path.join('/home/pi', f)
+    for f in os.listdir("/home/pi"):
+        if f.startswith("amt_") and f.endswith(".log"):
+            logfile = os.path.join("/home/pi", f)
             savefilebackup(timestampfolder, logfile)
             if f != "amt_modeselector.log":
                 os.remove(logfile)
 
-    logging.getLogger().removeHandler(loghandler)    
+    logging.getLogger().removeHandler(loghandler)
 
     return configurationupdated
 
 
 # Run main
-if __name__=="__main__": 
+if __name__ == "__main__":
     initlog("/home/pi/amt_transfer.log")
     config = AmtConfiguration(True)
     transferfiles(config)
 
-    try:    
-        subprocess.call(['sudo', 'umount', '--force', '/media/usb'], shell=False)
+    try:
+        subprocess.call(["sudo", "umount", "--force", "/media/usb"], shell=False)
     except Error:
         logging.exception("Could not unmount drive")

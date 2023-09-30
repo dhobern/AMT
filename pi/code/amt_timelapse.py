@@ -75,25 +75,40 @@ pi = None
 # To remember state of status light before execution
 originalstatus = "off"
 
+
 # Check whether specified manual setting (still) matches the user selection
 def modestillvalid(manual):
-    return (manual == (getcurrentmode() == MANUAL))
+    return manual == (getcurrentmode() == MANUAL)
+
 
 # Store additional metadata in config dictionary
 def addmetadata(config):
     global manual
     unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if unitname is None:
-        config.set(CAPTURE_UNITNAME, socket.gethostname(), SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+        config.set(
+            CAPTURE_UNITNAME,
+            socket.gethostname(),
+            SECTION_PROVENANCE,
+            SUBSECTION_CAPTURE,
+        )
     latitude = config.get(EVENT_LATITUDE, SECTION_EVENT)
     longitude = config.get(EVENT_LONGITUDE, SECTION_EVENT)
     if latitude is not None and longitude is not None:
         getsuntimes(config, latitude, longitude)
     config.set(EVENT_LUNARPHASE, getlunarphase(), SECTION_EVENT)
-    config.set(CAPTURE_PROGRAM, " ".join(sys.argv), SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    config.set(
+        CAPTURE_PROGRAM, " ".join(sys.argv), SECTION_PROVENANCE, SUBSECTION_CAPTURE
+    )
     config.set(CAPTURE_VERSION, __version__, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
-    config.set(CAPTURE_TRIGGER, "Manual" if manual else "Automatic", SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    config.set(
+        CAPTURE_TRIGGER,
+        "Manual" if manual else "Automatic",
+        SECTION_PROVENANCE,
+        SUBSECTION_CAPTURE,
+    )
     return config
+
 
 # Enable GPIO control and, if appropriate, enable status light, sensor and main lights
 def initoperation(config):
@@ -105,13 +120,16 @@ def initoperation(config):
     # Set up status light and store original color
     originalstatus = initstatus()
 
-    statuslight = config.get(CAPTURE_STATUSLIGHT, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    statuslight = config.get(
+        CAPTURE_STATUSLIGHT, SECTION_PROVENANCE, SUBSECTION_CAPTURE
+    )
     if statuslight:
         showstatus("green")
 
     envsensor = config.get(CAPTURE_ENVSENSOR, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if envsensor not in ["DHT22", "DHT11"]:
         envsensor = None
+
 
 # Turn sensor on or off if enabled
 def enablesensor(activate):
@@ -144,10 +162,14 @@ def enablesensor(activate):
                 GPIO.output(gpioenvsensorpower, GPIO.LOW)
             logging.info("Sensor disabled")
 
+
 # Return camera initialised using properties from config file - note that camera is already in preview when returned
 def initcamera(config):
     camera = PiCamera()
-    camera.resolution = (config.get(CAPTURE_IMAGEWIDTH, SECTION_PROVENANCE, SUBSECTION_CAPTURE), config.get(CAPTURE_IMAGEHEIGHT, SECTION_PROVENANCE, SUBSECTION_CAPTURE))
+    camera.resolution = (
+        config.get(CAPTURE_IMAGEWIDTH, SECTION_PROVENANCE, SUBSECTION_CAPTURE),
+        config.get(CAPTURE_IMAGEHEIGHT, SECTION_PROVENANCE, SUBSECTION_CAPTURE),
+    )
     brightness = config.get(CAPTURE_BRIGHTNESS, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if brightness is not None:
         camera.brightness = brightness
@@ -173,38 +195,48 @@ def initcamera(config):
     logging.info("Camera initialised")
     return camera
 
+
 """
 Create target folder for this run and make a copy of the current configfile to allow future interpretation - if specified,
 also initialise a folder on USB drive
 """
+
+
 def initfolders(config):
     folder = config.get(CAPTURE_FOLDER, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
     if not os.path.isdir(folder):
         os.mkdir(folder)
-    timestamp = datetime.today().strftime('%Y%m%d-%H%M%S')
+    timestamp = datetime.today().strftime("%Y%m%d-%H%M%S")
     foldername = os.path.join(folder, timestamp)
     os.mkdir(foldername)
     config.dump(os.path.join(foldername, CONFIG_METADATA))
     logging.info("Output folder created: " + foldername)
 
-    usbfolder = '/media/usb/AMT/'
+    usbfolder = "/media/usb/AMT/"
     transferfoldername = None
-    transferimages = config.get(CAPTURE_TRANSFERIMAGES, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
-    if (transferimages):
+    transferimages = config.get(
+        CAPTURE_TRANSFERIMAGES, SECTION_PROVENANCE, SUBSECTION_CAPTURE
+    )
+    if transferimages:
         logging.info("Transfer images is true")
         if os.path.exists(usbfolder):
             logging.info("USB device present")
-            xferconfigname = os.path.join(usbfolder, 'amt_transfer.yaml')
+            xferconfigname = os.path.join(usbfolder, "amt_transfer.yaml")
+            xferconfig = None
             if os.path.exists(xferconfigname) and os.path.isfile(xferconfigname):
                 xferconfig = AmtConfiguration(False, xferconfigname, False)
                 logging.info("Loaded transfer configuration file: " + xferconfigname)
             if not xferconfig or xferconfig.get(TRANSFER_IMAGES, SECTION_TRANSFER):
-                unitname = config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
-                transferfoldername = os.path.join(usbfolder, 'captures', unitname, timestamp)
+                unitname = config.get(
+                    CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE
+                )
+                transferfoldername = os.path.join(
+                    usbfolder, "captures", unitname, timestamp
+                )
                 if not os.path.exists(transferfoldername):
-                    unitfolder = os.path.join(usbfolder, 'captures', unitname)
+                    unitfolder = os.path.join(usbfolder, "captures", unitname)
                     if not os.path.exists(unitfolder):
-                        capturesfolder = os.path.join(usbfolder, 'captures')
+                        capturesfolder = os.path.join(usbfolder, "captures")
                         if not os.path.exists(capturesfolder):
                             os.mkdir(capturesfolder)
                         os.mkdir(unitfolder)
@@ -212,6 +244,7 @@ def initfolders(config):
                     config.dump(os.path.join(transferfoldername, CONFIG_METADATA))
 
     return foldername, transferfoldername
+
 
 # Return string with temperature and humidity encoded or empty string otherwise
 def readsensor():
@@ -222,9 +255,16 @@ def readsensor():
         if datum[2] == 0:
             return "-TempC_" + str(datum[3]) + "-Humid_" + str(datum[4])
         else:
-            logging.error(envsensor + " sensor returned " + ["DHT_GOOD", "DHT_BAD_CHECKSUM", "DHT_BAD_DATA", "DHT_TIMEOUT"][datum[2]])
+            logging.error(
+                envsensor
+                + " sensor returned "
+                + ["DHT_GOOD", "DHT_BAD_CHECKSUM", "DHT_BAD_DATA", "DHT_TIMEOUT"][
+                    datum[2]
+                ]
+            )
 
     return ""
+
 
 # Clean up after exception
 def signal_handler(sig, frame):
@@ -234,8 +274,9 @@ def signal_handler(sig, frame):
     logging.error("Caught signal - terminating")
     sys.exit(0)
 
+
 # Main body - initialise, run and clean up
-def timelapse(manuallytriggered = False):
+def timelapse(manuallytriggered=False):
     global manual
     manual = manuallytriggered
 
@@ -263,13 +304,19 @@ def timelapse(manuallytriggered = False):
     if imagecount is None:
         imagecount = -1
     jpegquality = config.get(CAPTURE_QUALITY, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
-    labeltext = '-{}-{}-{}'.format(config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE), config.get(CAPTURE_MODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE), str(interval))
+    labeltext = "-{}-{}-{}".format(
+        config.get(CAPTURE_UNITNAME, SECTION_PROVENANCE, SUBSECTION_CAPTURE),
+        config.get(CAPTURE_MODE, SECTION_PROVENANCE, SUBSECTION_CAPTURE),
+        str(interval),
+    )
     logging.info("Quality: " + str(jpegquality))
     initoperation(config)
-    
+
     # If mode is manual, the system should already be running. If this is a main execution, the script has been triggered by cron or from a shell - do not operate while manual is set.
     if not modestillvalid(manual):
-        logging.info("Execution mode does not match current user setting - terminate immediately")
+        logging.info(
+            "Execution mode does not match current user setting - terminate immediately"
+        )
         exit(0)
 
     addmetadata(config)
@@ -280,7 +327,9 @@ def timelapse(manuallytriggered = False):
         logging.info(envsensor + " sensor enabled")
 
     # If specified, wait before imaging
-    initialdelay = config.get(CAPTURE_INITIALDELAY, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+    initialdelay = config.get(
+        CAPTURE_INITIALDELAY, SECTION_PROVENANCE, SUBSECTION_CAPTURE
+    )
     if initialdelay is not None:
         logging.info("Initial delay: " + str(initialdelay) + " seconds")
         if modestillvalid(manual):
@@ -297,34 +346,51 @@ def timelapse(manuallytriggered = False):
 
         # Loop continues until maximum image count is reached or battery fails
         if manual:
-            logging.info("Time series of images at " + str(interval) + " second intervals")
-        else: 
-            logging.info("Time series of " + (str(imagecount) if imagecount >= 0 else "unlimited") + " images at " + str(interval) + " second intervals")
+            logging.info(
+                "Time series of images at " + str(interval) + " second intervals"
+            )
+        else:
+            logging.info(
+                "Time series of "
+                + (str(imagecount) if imagecount >= 0 else "unlimited")
+                + " images at "
+                + str(interval)
+                + " second intervals"
+            )
 
         # End if mode is switched or last image is captured for automatic mode
         imagenumber = 0
-        while modestillvalid(manual) and (manual or (not manual and imagecount > imagenumber)):
+        while modestillvalid(manual) and (
+            manual or (not manual and imagecount > imagenumber)
+        ):
             try:
                 # If requested, show status light
                 if statuslight:
                     showstatus("red")
-                
+
                 # Capture image with metadata in filename
                 imagetimestamp = datetime.today()
-                imagename = imagetimestamp.strftime('%Y%m%d%H%M%S') + labeltext + readsensor() + '.jpg'
+                imagename = (
+                    imagetimestamp.strftime("%Y%m%d%H%M%S")
+                    + labeltext
+                    + readsensor()
+                    + ".jpg"
+                )
                 imagepath = os.path.join(foldername, imagename)
                 imagenumber += 1
                 logging.info("Capturing image " + str(imagenumber))
-                camera.capture(imagepath, format = "jpeg", quality = jpegquality)
+                camera.capture(imagepath, format="jpeg", quality=jpegquality)
                 logging.info("Captured image " + str(imagenumber) + ": " + imagepath)
 
                 # If a USB capture folder is present, copy the image there
                 if transferfoldername and os.path.exists(transferfoldername):
                     try:
-                        shutil.copyfile(imagepath, os.path.join(transferfoldername, imagename))
+                        shutil.copyfile(
+                            imagepath, os.path.join(transferfoldername, imagename)
+                        )
                     except:
                         logging.exception("Failed to copy image to USB")
-                
+
                 # Reset status light
                 if statuslight:
                     showstatus("green")
@@ -339,16 +405,23 @@ def timelapse(manuallytriggered = False):
                 logging.exception("Caught exception in main loop")
 
         if not modestillvalid(manual):
-            logging.info("Mode changed during loop from " + ("manual to automatic" if manual else "automatic to manual"))
+            logging.info(
+                "Mode changed during loop from "
+                + ("manual to automatic" if manual else "automatic to manual")
+            )
 
         logging.info("Time series complete")
 
-        calibration = config.get(CAPTURE_CALIBRATION, SECTION_PROVENANCE, SUBSECTION_CAPTURE)
+        calibration = config.get(
+            CAPTURE_CALIBRATION, SECTION_PROVENANCE, SUBSECTION_CAPTURE
+        )
         if calibration is not None:
             calibrationfolder = os.path.join(foldername, "calibration")
-            calibratecamera(camera, calibration.split(','), calibrationfolder, config)
+            calibratecamera(camera, calibration.split(","), calibrationfolder, config)
             if transferfoldername:
-                subprocess.call(['cp', '-R', calibrationfolder, transferfoldername], shell=False)
+                subprocess.call(
+                    ["cp", "-R", calibrationfolder, transferfoldername], shell=False
+                )
 
         camera.close()
 
@@ -358,6 +431,7 @@ def timelapse(manuallytriggered = False):
     showstatus(originalstatus)
     logging.info("amt_timelapse.py END")
 
+
 # Run main
-if __name__=="__main__":
-   timelapse()
+if __name__ == "__main__":
+    timelapse()

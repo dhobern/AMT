@@ -4,18 +4,19 @@ from scipy.optimize import linear_sum_assignment
 import time
 from abc import ABC, abstractmethod
 
+
 def getdirection(a, b):
     ax, ay = a["xcenter"], a["ycenter"]
     bx, by = b["xcenter"], b["ycenter"]
     x = bx - ax
     y = by - ay
-    if (x ** 2) + (y ** 2) > 100:
-        return math.atan2(y,x)/math.pi*180
+    if (x**2) + (y**2) > 100:
+        return math.atan2(y, x) / math.pi * 180
     else:
         return ""
 
-class Scale(ABC):
 
+class Scale(ABC):
     def __init__(self):
         self.weight = 1
 
@@ -34,15 +35,15 @@ class Scale(ABC):
     def getweight(self):
         return self.weight
 
-class AMTSizeScale(Scale):
 
+class AMTSizeScale(Scale):
     def measurecost(self, a, b):
         asize = a["size"]
         bsize = b["size"]
         if asize > bsize:
-            temp = asize
-            asize = bsize 
-            bsize = temp
+            asize, bsize = bsize, asize
+        if asize == 0:
+            return self.weight
         ratio = bsize / asize
         if ratio > 4:
             return self.weight
@@ -51,8 +52,8 @@ class AMTSizeScale(Scale):
     def getcode(self):
         return "S"
 
-class AMTDistanceScale(Scale):
 
+class AMTDistanceScale(Scale):
     def measurecost(self, a, b):
         ax, ay = a["xcenter"], a["ycenter"]
         bx, by = b["xcenter"], b["ycenter"]
@@ -60,14 +61,19 @@ class AMTDistanceScale(Scale):
 
         if distance < 25:
             penaltydistance = 0
-        elif bx > a["x"] and bx < a["x"] + a["w"] and by > a["y"] and by < a["y"] + a["h"]:
+        elif (
+            bx > a["x"]
+            and bx < a["x"] + a["w"]
+            and by > a["y"]
+            and by < a["y"] + a["h"]
+        ):
             penaltydistance = 0.01
         elif distance < 100:
             penaltydistance = 0.01
         elif distance < 250:
             penaltydistance = 0.02
-        else: 
-            #Distance as fraction of possible distance - in range 0.0-1.0
+        else:
+            # Distance as fraction of possible distance - in range 0.0-1.0
             penaltydistance = distance / 4405
 
         return self.weight * penaltydistance
@@ -75,10 +81,10 @@ class AMTDistanceScale(Scale):
     def getcode(self):
         return "D"
 
-class AMTColorScale(Scale):
 
+class AMTColorScale(Scale):
     def __init__(self):
-        self.colors = [ "R", "G", "B", "C", "M", "Y", "W", "K" ]
+        self.colors = ["R", "G", "B", "C", "M", "Y", "W", "K"]
 
     def measurecost(self, a, b):
         distance = 0
@@ -88,14 +94,13 @@ class AMTColorScale(Scale):
             if (c in acolors) != (c in bcolors):
                 distance += 1
         return self.weight * distance / len(self.colors)
-        
+
     def getcode(self):
         return "C"
 
+
 class AMTAgeScale(Scale):
-
     def measurecost(self, a, b):
-
         if a["age"] > 5:
             return self.weight
         else:
@@ -104,12 +109,12 @@ class AMTAgeScale(Scale):
     def getcode(self):
         return "A"
 
-class AMTDirectionScale(Scale):
 
+class AMTDirectionScale(Scale):
     def measurecost(self, a, b):
         if a["direction"] == "":
             return 0
-        
+
         direction = getdirection(a, b)
 
         if direction == "":
@@ -126,8 +131,8 @@ class AMTDirectionScale(Scale):
     def getcode(self):
         return "B"
 
-class AMTScaleFactory:
 
+class AMTScaleFactory:
     def create(self, conf):
         classname = conf["class"]
         if classname == "AMTSizeScale":
@@ -146,8 +151,8 @@ class AMTScaleFactory:
         scale.setweight(conf)
         return scale
 
-class AMTTracker:
 
+class AMTTracker:
     def __init__(self, conf):
         self.savedois = []
         self.conf = conf["tracker"]
@@ -163,7 +168,7 @@ class AMTTracker:
         self.cost_threshold = self.conf["cost_threshold"]
 
     def blobsmatch(self, blob1, blob2):
-        # For this purpose, a match is considered good if the centroids of the 
+        # For this purpose, a match is considered good if the centroids of the
         # blobs are in the innnermost 10% of the other blob and if the sizes are
         # within 20%.
 
@@ -184,23 +189,35 @@ class AMTTracker:
         size1 = w1 * h1
         size2 = w2 * h2
 
-        if (size2 > size1 and size2 > size1 * 1.2) or (size1 > size2 and size1 > size2 * 1.2):
+        if (size2 > size1 and size2 > size1 * 1.2) or (
+            size1 > size2 and size1 > size2 * 1.2
+        ):
             return False
 
-        if cx1 < x2 + (w2 * 0.4) or cx1 > x2 + (w2 * 0.6) or cy1 < y2 + (h2 * 0.4) or cy1 > y2 + (h2 * 0.56):
+        if (
+            cx1 < x2 + (w2 * 0.4)
+            or cx1 > x2 + (w2 * 0.6)
+            or cy1 < y2 + (h2 * 0.4)
+            or cy1 > y2 + (h2 * 0.56)
+        ):
             return False
 
-        if cx2 < x1 + (w1 * 0.4) or cx2 > x1 + (w1 * 0.6) or cy2 < y1 + (h1 * 0.4) or cy2 > y1 + (h1 * 0.6):
+        if (
+            cx2 < x1 + (w1 * 0.4)
+            or cx2 > x1 + (w1 * 0.6)
+            or cy2 < y1 + (h1 * 0.4)
+            or cy2 > y1 + (h1 * 0.6)
+        ):
             return False
 
-        return True    
+        return True
 
     def compare(self, a, b):
         comparison = 0
         cstring = ""
         for s in self.scales:
             distance = s.measurecost(a, b)
-            comparison += distance ** 2
+            comparison += distance**2
             sstring = s.getcode() + ":" + str(distance)
             if len(sstring) > 7:
                 sstring = sstring[0:7]
@@ -249,7 +266,7 @@ class AMTTracker:
                     costs[t][b], cstring = self.compare(tracks[t], blobs[b])
                     cstringrow.append(cstring)
 
-            if False: # Show cost matrix
+            if False:  # Show cost matrix
                 colnames = "Blobs"
                 sep = ": "
                 for b in blobs:
@@ -258,8 +275,8 @@ class AMTTracker:
                 print(colnames)
                 for t in range(len(tracks)):
                     print(str(tracks[t]["trackid"]) + ": " + str(costs[t]))
-                #print(str(len(tracks)) + " / " + str(len(blobs)) + " / " + str(costs))
-            
+                # print(str(len(tracks)) + " / " + str(len(blobs)) + " / " + str(costs))
+
             track_ind, blob_ind = linear_sum_assignment(costs)
 
             for i in range(len(track_ind)):
@@ -277,13 +294,13 @@ class AMTTracker:
                     blobs[blob_ind[i]] = None
 
         # At this point, newtracks contains all the blobs that match, tracks
-        # contains other blobs from the last image, and blobs contains the 
-        # currently unmatched blobs. 
+        # contains other blobs from the last image, and blobs contains the
+        # currently unmatched blobs.
 
         t = 0
         while t < len(tracks):
             track = tracks[t]
-            if track is not None and track["age"] <  5:
+            if track is not None and track["age"] < 5:
                 track["age"] = track["age"] + 1
                 newtracks.append(track)
                 tracks.pop(t)
