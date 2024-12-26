@@ -68,6 +68,7 @@ def track_completeness(foldername):
 def find_folder_by_keyword(parent_folder, kw):
     p = re.compile("^20[-0-9]*$")
     foldername = ""
+    candidate = None
 
     for f in os.listdir(parent_folder):
         if p.match(f):
@@ -76,6 +77,11 @@ def find_folder_by_keyword(parent_folder, kw):
                 completeness = track_completeness(foldername)
                 if kw == "INCOMPLETE" and completeness in [track_missing, track_incomplete]:
                     return foldername
+                elif kw == "LATEST_INCOMPLETE" and completeness in [track_missing, track_incomplete]:
+                    candidate = foldername
+    
+    if candidate is not None:
+        return candidate
     
     # Treat all other keywords as LATEST
     return foldername
