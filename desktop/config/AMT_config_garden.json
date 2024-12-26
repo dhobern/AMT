@@ -1,12 +1,11 @@
 {
-   "datapath": "D:/AMT/AMT-2",
+   "datapath": "D:/AMT/AMT-2/GardenPatch/",
    "threshold": 0.25,
    "maxim": -1,
    "force": false,
    "savemarked": false,
    "savemovie": false,
    "markchanged": false,
-   "subsetinterval": 3600,
 
    "blobdetector": {
       "kernel": 7,
