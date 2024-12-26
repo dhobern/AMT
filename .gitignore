@@ -7,3 +7,4 @@ CameraSettings.txt
 *.xlsx
 /.vs/
 desktop/code/ManageDictionary.py
+desktop/code/venv
